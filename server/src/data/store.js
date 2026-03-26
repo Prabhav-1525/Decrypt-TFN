@@ -1,19 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
-import initSqlJs from "sql.js";
 import { seedData } from "./seed.js";
+import { getServiceClient } from "../utils/supabase.js";
 
-const DEFAULT_DB_FILE = path.resolve(process.cwd(), "src/data/db.sqlite");
 const LEGACY_JSON_FILE = path.resolve(process.cwd(), "src/data/db.json");
 const DEFAULT_PUZZLE_ROOT = path.resolve(process.cwd(), "puzzle_bank");
 const PUZZLE_ROOT_BASE = process.env.PUZZLE_ROOT_BASE
   ? path.resolve(process.env.PUZZLE_ROOT_BASE)
   : DEFAULT_PUZZLE_ROOT;
-const SQLJS_WASM_DIR = process.env.SQLJS_WASM_DIR
-  ? path.resolve(process.env.SQLJS_WASM_DIR)
-  : path.resolve(process.cwd(), "node_modules/sql.js/dist");
-let cachedSqlModule = null;
+const SUPABASE_STATE_TABLE = process.env.SUPABASE_STATE_TABLE || "app_state";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -106,44 +102,40 @@ function readLegacyJson() {
 export class DataStore {
   constructor() {
     this.db = null;
-    this.sqlite = null;
-    this.dbFile = process.env.DB_FILE_PATH ? path.resolve(process.env.DB_FILE_PATH) : DEFAULT_DB_FILE;
+    this.client = null;
   }
 
   async init() {
-    fs.mkdirSync(path.dirname(this.dbFile), { recursive: true });
-    if (!cachedSqlModule) {
-      cachedSqlModule = await initSqlJs({
-        locateFile: (file) => path.resolve(SQLJS_WASM_DIR, file)
-      });
+    this.client = getServiceClient();
+
+    const existing = await this.client
+      .from(SUPABASE_STATE_TABLE)
+      .select("value")
+      .eq("key", "state")
+      .maybeSingle();
+
+    if (existing.error && existing.error.code !== "PGRST116") {
+      throw existing.error;
     }
-    const SQL = cachedSqlModule;
-    const hasFile = fs.existsSync(this.dbFile);
-    const fileBuffer = hasFile ? fs.readFileSync(this.dbFile) : null;
-    this.sqlite = fileBuffer ? new SQL.Database(fileBuffer) : new SQL.Database();
 
-    this.sqlite.run("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
-    const existing = this.sqlite.exec("SELECT value FROM kv WHERE key = 'state' LIMIT 1");
-
-    if (existing.length && existing[0].values.length) {
-      const parsed = JSON.parse(existing[0].values[0][0]);
-      this.db = normalizeData(parsed);
+    if (existing.data?.value) {
+      this.db = normalizeData(existing.data.value);
     } else {
       const legacy = readLegacyJson();
       this.db = normalizeData(legacy || buildInitialData());
+      await this.persist();
     }
-    this.persist();
   }
 
-  persist() {
-    const payload = JSON.stringify(this.db);
-    const stmt = this.sqlite.prepare(
-      "INSERT INTO kv (key, value) VALUES ('state', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-    );
-    stmt.run([payload]);
-    stmt.free();
-    const serialized = Buffer.from(this.sqlite.export());
-    fs.writeFileSync(this.dbFile, serialized);
+  async persist() {
+    const { error } = await this.client.from(SUPABASE_STATE_TABLE).upsert({
+      key: "state",
+      value: this.db,
+      updated_at: new Date().toISOString()
+    });
+    if (error) {
+      console.error("Failed to persist state to Supabase:", error.message);
+    }
   }
 
   read() {
@@ -152,7 +144,7 @@ export class DataStore {
 
   write(mutator) {
     mutator(this.db);
-    this.persist();
+    void this.persist();
     return this.db;
   }
 }
