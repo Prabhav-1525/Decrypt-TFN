@@ -58,6 +58,25 @@ function ensureViolations(db) {
   }
 }
 
+function ensureNotepads(db) {
+  const teamIds = db.teams.filter((t) => !t.is_admin).map((t) => t.team_id);
+  db.notepads = db.notepads || [];
+  for (const teamId of teamIds) {
+    const existing = db.notepads.find((n) => n.team_id === teamId);
+    if (!existing) {
+      db.notepads.push({
+        team_id: teamId,
+        content: "",
+        updated_at: null
+      });
+    }
+  }
+}
+
+function ensureHintReveals(db) {
+  db.hint_reveals = db.hint_reveals || [];
+}
+
 function normalizeData(db) {
   db.assignments = db.assignments || [];
   db.submissions = db.submissions || [];
@@ -66,6 +85,8 @@ function normalizeData(db) {
   db.events = db.events || [];
   ensureLifelines(db);
   ensureViolations(db);
+  ensureNotepads(db);
+  ensureHintReveals(db);
   return db;
 }
 

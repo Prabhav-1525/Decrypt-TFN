@@ -4,7 +4,11 @@ import {
   reportViolation,
   runCodePreview,
   submitAnswer,
-  useLifeline
+  useLifeline,
+  getHintsForTeam,
+  revealHint,
+  getNotepad,
+  saveNotepad
 } from "../services/puzzleService.js";
 import { getDashboardSnapshot } from "../services/dashboardService.js";
 import { readPuzzleAssetForTeam } from "../services/puzzleBankService.js";
@@ -98,6 +102,41 @@ export function createTeamRouter(store) {
     });
     req.io.emit("dashboard:update", getDashboardSnapshot(store));
     return res.json({ ok: true });
+  });
+
+  router.get("/hints", (req, res) => {
+    const teamId = req.user.team_id;
+    const result = getHintsForTeam(store, teamId);
+    if (!result.ok) {
+      return res.status(400).json(result);
+    }
+    return res.json(result);
+  });
+
+  router.post("/hints/reveal", (req, res) => {
+    const teamId = req.user.team_id;
+    const { hintIndex } = req.body || {};
+    const result = revealHint(store, teamId, Number(hintIndex));
+    if (!result.ok) {
+      return res.status(400).json(result);
+    }
+    return res.json(result);
+  });
+
+  router.get("/notepad", (req, res) => {
+    const teamId = req.user.team_id;
+    const result = getNotepad(store, teamId);
+    return res.json(result);
+  });
+
+  router.put("/notepad", (req, res) => {
+    const teamId = req.user.team_id;
+    const { content } = req.body || {};
+    const result = saveNotepad(store, teamId, content || "");
+    if (!result.ok) {
+      return res.status(400).json(result);
+    }
+    return res.json(result);
   });
 
   return router;
