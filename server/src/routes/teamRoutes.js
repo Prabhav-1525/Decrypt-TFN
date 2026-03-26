@@ -92,12 +92,12 @@ export function createTeamRouter(store) {
   router.post("/violation", (req, res) => {
     const teamId = req.user.team_id;
     const { type, detail } = req.body || {};
-    reportViolation(store, teamId, {
+    const penalty = reportViolation(store, teamId, {
       type: type || "unknown",
       detail: detail || ""
     });
     req.io.emit("dashboard:update", getDashboardSnapshot(store));
-    return res.json({ ok: true });
+    return res.json({ ok: true, penalty });
   });
 
   return router;

@@ -2,9 +2,12 @@ import jwt from "jsonwebtoken";
 import { nowIso } from "../utils/time.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+const ACCESS_TOKEN_TTL_MINUTES = Number(process.env.ACCESS_TOKEN_TTL_MINUTES || 120);
+const ACCESS_TOKEN_EXPIRES_IN = `${ACCESS_TOKEN_TTL_MINUTES}m`;
 
-export function signToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "10h" });
+export function signToken(payload, options = {}) {
+  const expiresIn = options.expiresIn || ACCESS_TOKEN_EXPIRES_IN;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
 
 export function authenticateToken(req, res, next) {

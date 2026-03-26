@@ -25,6 +25,7 @@ export default function ParticipantPage() {
   const [error, setError] = useState("");
   const [violations, setViolations] = useState(0);
   const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement));
+  const isPaused = Boolean(status?.is_timer_paused);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -58,7 +59,7 @@ export default function ParticipantPage() {
   }, [loadStatus]);
 
   useEffect(() => {
-    if (!status || status.completed || !status.assignment) {
+    if (!status || status.completed || !status.assignment || status.is_timer_paused) {
       return undefined;
     }
 
@@ -278,9 +279,14 @@ export default function ParticipantPage() {
           <section className="stats-grid">
             <article className="card stat-card">
               <p className="label">Time Remaining</p>
-              <h2 className={status?.remaining_seconds <= 60 ? "danger-text" : ""}>
-                {formatTime(status?.remaining_seconds || 0)}
+              <h2 className={status?.remaining_seconds <= 60 && !isPaused ? "danger-text" : ""}>
+                {isPaused ? "Paused" : formatTime(status?.remaining_seconds || 0)}
               </h2>
+              {isPaused && (
+                <p className="muted" style={{ fontSize: '0.85rem' }}>
+                  Timer paused by admin. Remaining: {formatTime(status?.paused_remaining_seconds ?? status?.remaining_seconds ?? 0)}
+                </p>
+              )}
             </article>
             <article className="card stat-card">
               <p className="label">Lifelines Left</p>

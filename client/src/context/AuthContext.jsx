@@ -1,9 +1,21 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import api, { setAuthToken } from "../services/api";
 
 const AuthContext = createContext(null);
 
 const STORAGE_KEY = "puzzle-platform-auth";
+const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+const AUTO_REFRESH_BUFFER_MS = 2 * 60 * 1000;
+
+function buildAuthState(data) {
+  return {
+    token: data.token,
+    refresh_token: data.refresh_token,
+    expires_at: data.expires_at,
+    refresh_expires_at: data.refresh_expires_at,
+    team: data.team
+  };
+}
 
 export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(() => {
@@ -12,10 +24,19 @@ export function AuthProvider({ children }) {
   });
   const [isAuthChecked, setIsAuthChecked] = useState(false);
 
+  const refreshSession = useCallback(async () => {
+    if (!auth?.refresh_token) return null;
+    const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
+    const next = buildAuthState(response.data);
+    setAuth(next);
+    setAuthToken(next.token);
+    return next;
+  }, [auth?.refresh_token]);
+
   useEffect(() => {
     let active = true;
 
-    const validate = async () => {
+    const refreshIfNeeded = async () => {
       if (!auth?.token) {
         if (active) {
           setIsAuthChecked(true);
@@ -24,9 +45,16 @@ export function AuthProvider({ children }) {
       }
 
       setAuthToken(auth.token);
+      const now = Date.now();
+      const expiresAt = auth.expires_at ? new Date(auth.expires_at).getTime() : 0;
+      const shouldRefresh = auth.refresh_token && expiresAt > 0 && expiresAt - now < REFRESH_THRESHOLD_MS;
 
       try {
-        await api.get("/auth/validate");
+        if (shouldRefresh) {
+          await refreshSession();
+        } else {
+          await api.get("/auth/validate");
+        }
       } catch {
         if (active) {
           setAuth(null);
@@ -38,11 +66,11 @@ export function AuthProvider({ children }) {
       }
     };
 
-    validate();
+    refreshIfNeeded();
     return () => {
       active = false;
     };
-  }, []);
+  }, [auth, refreshSession]);
 
   useEffect(() => {
     if (auth?.token) {
@@ -55,18 +83,45 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(STORAGE_KEY);
   }, [auth]);
 
+  useEffect(() => {
+    if (!auth?.expires_at || !auth?.refresh_token) {
+      return undefined;
+    }
+
+    const expiresMs = new Date(auth.expires_at).getTime();
+    const refreshAfter = Math.max(expiresMs - Date.now() - AUTO_REFRESH_BUFFER_MS, 0);
+    if (refreshAfter <= 0) {
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        await refreshSession();
+      } catch {
+        setAuth(null);
+      }
+    }, refreshAfter);
+
+    return () => clearTimeout(timer);
+  }, [auth?.expires_at, auth?.refresh_token, refreshSession]);
+
   const loginTeam = async (teamId, password, isAdmin = false) => {
     const endpoint = isAdmin ? "/auth/admin-login" : "/auth/login";
     const response = await api.post(endpoint, { teamId, password });
-    setAuth({
-      token: response.data.token,
-      team: response.data.team
-    });
+    setAuth(buildAuthState(response.data));
     return response.data;
   };
 
-  const logout = () => {
-    setAuth(null);
+  const logout = async () => {
+    try {
+      if (auth?.token) {
+        setAuthToken(auth.token);
+        await api.post("/auth/logout", { refreshToken: auth?.refresh_token });
+      }
+    } catch {
+      // ignore logout errors for client hygiene
+    } finally {
+      setAuth(null);
+    }
   };
 
   const value = useMemo(
@@ -74,11 +129,12 @@ export function AuthProvider({ children }) {
       auth,
       loginTeam,
       logout,
+      refreshSession,
       isAuthenticated: Boolean(auth?.token),
       isAdmin: Boolean(auth?.team?.is_admin),
       isAuthChecked
     }),
-    [auth, isAuthChecked]
+    [auth, isAuthChecked, refreshSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

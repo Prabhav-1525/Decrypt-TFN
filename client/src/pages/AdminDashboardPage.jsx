@@ -19,10 +19,16 @@ export default function AdminDashboardPage() {
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState("");
   const [importFeedback, setImportFeedback] = useState("");
-  const [folderPath, setFolderPath] = useState("c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank");
+  const [folderPath, setFolderPath] = useState("");
   const [replaceImported, setReplaceImported] = useState(true);
   const [replaceAllPuzzles, setReplaceAllPuzzles] = useState(true);
   const [timerInputs, setTimerInputs] = useState({});
+  const [filterTerm, setFilterTerm] = useState("");
+  const [selectedTeams, setSelectedTeams] = useState([]);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [bulkTimerSeconds, setBulkTimerSeconds] = useState("");
+  const [actionFeedback, setActionFeedback] = useState("");
 
   const fetchOverview = async () => {
     try {
@@ -34,8 +40,20 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchConfig = async () => {
+    try {
+      const response = await api.get("/admin/config");
+      if (!folderPath && response.data?.puzzle_bank_default_path) {
+        setFolderPath(response.data.puzzle_bank_default_path);
+      }
+    } catch {
+      // non-blocking
+    }
+  };
+
   useEffect(() => {
     fetchOverview();
+    fetchConfig();
   }, []);
 
   useEffect(() => {
@@ -58,13 +76,41 @@ export default function AdminDashboardPage() {
   }, []);
 
   const leaderboard = useMemo(() => snapshot?.leaderboard || [], [snapshot]);
-
+  const teams = useMemo(() => snapshot?.teams || [], [snapshot]);
+  const filteredTeams = useMemo(() => {
+    if (!filterTerm.trim()) return teams;
+    const needle = filterTerm.toLowerCase();
+    return teams.filter(
+      (team) =>
+        team.team_name.toLowerCase().includes(needle) ||
+        team.team_id.toLowerCase().includes(needle) ||
+        (team.active_puzzle_id || "").toLowerCase().includes(needle)
+    );
+  }, [teams, filterTerm]);
   const skipPuzzle = async (teamId) => {
     try {
       await api.post(`/admin/team/${teamId}/skip`);
       await fetchOverview();
     } catch (requestError) {
       setError(requestError?.response?.data?.message || "Unable to skip puzzle.");
+    }
+  };
+
+  const pauseTeam = async (teamId) => {
+    try {
+      await api.post(`/admin/team/${teamId}/pause`);
+      await fetchOverview();
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || "Unable to pause timer.");
+    }
+  };
+
+  const resumeTeam = async (teamId) => {
+    try {
+      await api.post(`/admin/team/${teamId}/resume`);
+      await fetchOverview();
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || "Unable to resume timer.");
     }
   };
 
@@ -94,6 +140,79 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const toggleSelectTeam = (teamId) => {
+    setSelectedTeams((prev) =>
+      prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId]
+    );
+  };
+
+  const areTeamsSelected = (teamList) =>
+    teamList.length > 0 && teamList.every((team) => selectedTeams.includes(team.team_id));
+
+  const selectAllVisible = (teamList) => {
+    const allIds = teamList.map((t) => t.team_id);
+    setSelectedTeams((prev) => Array.from(new Set([...prev, ...allIds])));
+  };
+
+  const clearSelection = () => setSelectedTeams([]);
+
+  const toggleVisibleSelection = (teamList) => {
+    const ids = teamList.map((t) => t.team_id);
+    const allSelected = areTeamsSelected(teamList);
+    setSelectedTeams((prev) => {
+      if (allSelected) {
+        return prev.filter((id) => !ids.includes(id));
+      }
+      return Array.from(new Set([...prev, ...ids]));
+    });
+  };
+
+  const allVisibleSelected = areTeamsSelected(filteredTeams);
+
+  const bulkAction = async (action) => {
+    if (!selectedTeams.length) {
+      setError("Select at least one team for bulk actions.");
+      return;
+    }
+
+    setActionFeedback("");
+    try {
+      const response = await api.post("/admin/bulk", {
+        teamIds: selectedTeams,
+        action,
+        remainingSeconds: Number(bulkTimerSeconds) || 0
+      });
+      const results = response.data?.results || [];
+      const successCount = results.filter((entry) => entry.ok).length;
+      const failureCount = results.length - successCount;
+      setActionFeedback(
+        `Bulk ${action}: ${successCount} succeeded${failureCount ? `, ${failureCount} failed` : ""}.`
+      );
+      if (failureCount) {
+        setError("Some bulk operations failed. See logs for details.");
+      } else {
+        setError("");
+      }
+      await fetchOverview();
+      clearSelection();
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || "Bulk action failed.");
+    }
+  };
+
+  const loadDetail = async (teamId) => {
+    setDetailLoading(true);
+    setDetail(null);
+    try {
+      const response = await api.get(`/admin/team/${teamId}/detail`);
+      setDetail(response.data);
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || "Unable to load team details.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   return (
     <main className="page-shell admin-page">
       <section className="top-bar">
@@ -117,7 +236,7 @@ export default function AdminDashboardPage() {
             type="text"
             value={folderPath}
             onChange={(event) => setFolderPath(event.target.value)}
-            placeholder="C:\\path\\to\\puzzle_bank"
+            placeholder="Path to puzzle_bank (leave blank to use default)"
             style={{ width: '100%', maxWidth: '800px' }}
           />
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
@@ -163,27 +282,78 @@ export default function AdminDashboardPage() {
       <section className="grid-two">
         <article className="card" style={{ padding: '24px' }}>
           <span className="eyebrow">Team Monitoring</span>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', margin: '12px 0' }}>
+            <input
+              type="text"
+              placeholder="Filter by team, ID, or puzzle..."
+              value={filterTerm}
+              onChange={(event) => setFilterTerm(event.target.value)}
+              style={{ padding: '8px', minWidth: '240px' }}
+            />
+            <button className="btn btn-outline" onClick={() => selectAllVisible(filteredTeams)}>Select Visible</button>
+            <button className="btn btn-muted" onClick={clearSelection}>Clear Selection</button>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>Selected: {selectedTeams.length}</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <button className="btn btn-outline" onClick={() => bulkAction("pause")} disabled={!selectedTeams.length}>Pause Selected</button>
+            <button className="btn btn-outline" onClick={() => bulkAction("resume")} disabled={!selectedTeams.length}>Resume Selected</button>
+            <button className="btn btn-outline" onClick={() => bulkAction("skip")} disabled={!selectedTeams.length}>Skip Selected</button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="number"
+                min="0"
+                placeholder="sec"
+                value={bulkTimerSeconds}
+                onChange={(event) => setBulkTimerSeconds(event.target.value)}
+                style={{ width: '90px', padding: '6px' }}
+              />
+              <button className="btn btn-primary" onClick={() => bulkAction("timer")} disabled={!selectedTeams.length}>
+                Set Timer Selected
+              </button>
+            </div>
+          </div>
+          {actionFeedback && <p className="info-text" style={{ marginBottom: '12px' }}>{actionFeedback}</p>}
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={() => toggleVisibleSelection(filteredTeams)}
+                    />
+                  </th>
                   <th>Team</th>
                   <th>Puzzle</th>
                   <th>Time Left</th>
+                  <th>Status</th>
                   <th>Attempts</th>
                   <th>Lifelines</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {(snapshot?.teams || []).map((team) => (
+                {filteredTeams.map((team) => (
                   <tr key={team.team_id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedTeams.includes(team.team_id)}
+                        onChange={() => toggleSelectTeam(team.team_id)}
+                      />
+                    </td>
                     <td>
                       <strong>{team.team_name}</strong>
                       <p className="muted mono" style={{ fontSize: '0.75rem' }}>{team.team_id}</p>
                     </td>
                     <td><span className="mono" style={{ color: 'var(--accent-secondary)' }}>{team.active_puzzle_id || "-"}</span></td>
-                    <td><span className={team.remaining_seconds <= 60 ? "danger-text" : ""}>{formatTime(team.remaining_seconds)}</span></td>
+                    <td>
+                      <span className={team.remaining_seconds <= 60 && !team.is_timer_paused ? "danger-text" : ""}>
+                        {team.is_timer_paused ? "Paused" : formatTime(team.remaining_seconds)}
+                      </span>
+                    </td>
+                    <td>{team.is_timer_paused ? "Paused" : "Active"}</td>
                     <td>{team.attempts}</td>
                     <td>{team.lifeline_remaining}</td>
                     <td>
@@ -191,6 +361,15 @@ export default function AdminDashboardPage() {
                         <button className="btn btn-muted" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => skipPuzzle(team.team_id)}>
                           Skip
                         </button>
+                        {team.is_timer_paused ? (
+                          <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => resumeTeam(team.team_id)}>
+                            Resume
+                          </button>
+                        ) : (
+                          <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => pauseTeam(team.team_id)}>
+                            Pause
+                          </button>
+                        )}
                         <input
                           type="number"
                           min="0"
@@ -206,6 +385,9 @@ export default function AdminDashboardPage() {
                         />
                         <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => adjustTimer(team.team_id)}>
                           Set
+                        </button>
+                        <button className="btn btn-muted" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => loadDetail(team.team_id)}>
+                          Drilldown
                         </button>
                       </div>
                     </td>
@@ -256,6 +438,47 @@ export default function AdminDashboardPage() {
           ))}
         </div>
       </section>
+
+      {(detailLoading || detail) && (
+        <section className="card" style={{ marginTop: '24px', padding: '24px' }}>
+          <span className="eyebrow">Team Drilldown</span>
+          {detailLoading && <p className="muted">Loading team insights...</p>}
+          {detail && (
+            <div className="grid-two" style={{ marginTop: '12px' }}>
+              <div>
+                <h3>{detail.team.team_name} <span className="mono muted">({detail.team.team_id})</span></h3>
+                <p className="muted">Lifelines: {detail.lifeline?.lifeline_remaining ?? 0} remaining, used {detail.lifeline?.lifeline_used ?? 0}</p>
+                <h4 style={{ marginTop: '12px' }}>Recent Assignments</h4>
+                <ul className="muted" style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                  {detail.assignments.map((assignment) => (
+                    <li key={`${assignment.puzzle_id}-${assignment.start_time}`}>
+                      {assignment.puzzle_id} — {assignment.status} — {new Date(assignment.start_time).toLocaleTimeString()}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h4>Recent Submissions</h4>
+                <ul className="muted" style={{ maxHeight: '140px', overflowY: 'auto' }}>
+                  {detail.submissions.map((submission) => (
+                    <li key={submission.timestamp}>
+                      {submission.puzzle_id}: {submission.result} at {new Date(submission.timestamp).toLocaleTimeString()}
+                    </li>
+                  ))}
+                </ul>
+                <h4 style={{ marginTop: '12px' }}>Events</h4>
+                <ul className="muted" style={{ maxHeight: '140px', overflowY: 'auto' }}>
+                  {detail.events.map((event) => (
+                    <li key={event.event_id || event.timestamp}>
+                      {event.type} at {new Date(event.timestamp).toLocaleTimeString()}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
     </main>
   );
 }

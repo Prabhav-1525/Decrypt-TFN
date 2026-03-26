@@ -21,7 +21,7 @@ const io = new Server(httpServer, {
 });
 
 const store = new DataStore();
-store.init();
+await store.init();
 
 // Sync puzzles from folder
 const syncResult = syncPuzzlesFromFolder(store, getDefaultPuzzleBankDir(), {
