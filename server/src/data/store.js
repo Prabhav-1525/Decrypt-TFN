@@ -10,6 +10,9 @@ const DEFAULT_PUZZLE_ROOT = path.resolve(process.cwd(), "puzzle_bank");
 const CUSTOM_PUZZLE_ROOT_BASE = process.env.PUZZLE_ROOT_BASE
   ? path.resolve(process.env.PUZZLE_ROOT_BASE)
   : DEFAULT_PUZZLE_ROOT;
+const SQLJS_WASM_DIR = process.env.SQLJS_WASM_DIR
+  ? path.resolve(process.env.SQLJS_WASM_DIR)
+  : path.resolve(process.cwd(), "node_modules/sql.js/dist");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -109,7 +112,7 @@ export class DataStore {
   async init() {
     fs.mkdirSync(path.dirname(this.dbFile), { recursive: true });
     const SQL = await initSqlJs({
-      locateFile: (file) => path.resolve(process.cwd(), "node_modules/sql.js/dist", file)
+      locateFile: (file) => path.resolve(SQLJS_WASM_DIR, file)
     });
     const hasFile = fs.existsSync(this.dbFile);
     const fileBuffer = hasFile ? fs.readFileSync(this.dbFile) : null;

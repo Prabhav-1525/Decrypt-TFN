@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { getRemainingSeconds, nowIso } from "../utils/time.js";
 import { evaluateSubmissionOutput, executeSubmissionPreview } from "./executionService.js";
 
+const ANTI_CHEAT_WINDOW_MS = 10 * 60 * 1000;
+const ANTI_CHEAT_PENALTY_SECONDS = 30;
+
 function normalizeAnswer(answer) {
   return `${answer || ""}`.trim().toLowerCase();
 }
@@ -370,12 +373,11 @@ export function getTeamStatus(store, teamId) {
 function applyAntiCheatPolicy(store, teamId) {
   const db = store.read();
   const nowMs = Date.now();
-  const windowMs = 10 * 60 * 1000;
   const recent = db.events.filter(
     (event) =>
       event.team_id === teamId &&
       event.type === "anti_cheat_violation" &&
-      new Date(event.timestamp).getTime() >= nowMs - windowMs
+      new Date(event.timestamp).getTime() >= nowMs - ANTI_CHEAT_WINDOW_MS
   );
 
   const violationCount = recent.length;
@@ -397,7 +399,7 @@ function applyAntiCheatPolicy(store, teamId) {
   }
 
   const currentRemaining = getAssignmentRemainingSeconds(active);
-  const penaltySeconds = Math.min(30 * (violationCount - 2), currentRemaining);
+  const penaltySeconds = Math.min(ANTI_CHEAT_PENALTY_SECONDS * (violationCount - 2), currentRemaining);
   const newRemaining = Math.max(currentRemaining - penaltySeconds, 0);
   store.write((data) => {
     setAssignmentRemainingSeconds(active, newRemaining);

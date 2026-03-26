@@ -5,6 +5,7 @@ const AuthContext = createContext(null);
 
 const STORAGE_KEY = "puzzle-platform-auth";
 const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+const AUTO_REFRESH_BUFFER_MS = 2 * 60 * 1000;
 
 function buildAuthState(data) {
   return {
@@ -84,7 +85,7 @@ export function AuthProvider({ children }) {
     }
 
     const expiresMs = new Date(auth.expires_at).getTime();
-    const refreshAfter = Math.max(expiresMs - Date.now() - 2 * 60 * 1000, 0);
+    const refreshAfter = Math.max(expiresMs - Date.now() - AUTO_REFRESH_BUFFER_MS, 0);
     const timer = setTimeout(async () => {
       try {
         const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
