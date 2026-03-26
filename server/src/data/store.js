@@ -7,7 +7,7 @@ import { seedData } from "./seed.js";
 const DEFAULT_DB_FILE = path.resolve(process.cwd(), "src/data/db.sqlite");
 const LEGACY_JSON_FILE = path.resolve(process.cwd(), "src/data/db.json");
 const DEFAULT_PUZZLE_ROOT = path.resolve(process.cwd(), "puzzle_bank");
-const CUSTOM_PUZZLE_ROOT_BASE = process.env.PUZZLE_ROOT_BASE
+const PUZZLE_ROOT_BASE = process.env.PUZZLE_ROOT_BASE
   ? path.resolve(process.env.PUZZLE_ROOT_BASE)
   : DEFAULT_PUZZLE_ROOT;
 const SQLJS_WASM_DIR = process.env.SQLJS_WASM_DIR
@@ -39,7 +39,7 @@ function normalizePuzzleSources(db) {
     const sanitizedRoot = puzzle.source_root
       ? path.isAbsolute(puzzle.source_root)
         ? puzzle.source_root
-        : path.resolve(CUSTOM_PUZZLE_ROOT_BASE, puzzle.source_root)
+        : path.resolve(PUZZLE_ROOT_BASE, puzzle.source_root)
       : DEFAULT_PUZZLE_ROOT;
     return {
       ...puzzle,

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import api, { setAuthToken } from "../services/api";
 
 const AuthContext = createContext(null);
@@ -24,6 +24,15 @@ export function AuthProvider({ children }) {
   });
   const [isAuthChecked, setIsAuthChecked] = useState(false);
 
+  const refreshSession = useCallback(async () => {
+    if (!auth?.refresh_token) return null;
+    const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
+    const next = buildAuthState(response.data);
+    setAuth(next);
+    setAuthToken(next.token);
+    return next;
+  }, [auth?.refresh_token]);
+
   useEffect(() => {
     let active = true;
 
@@ -42,12 +51,7 @@ export function AuthProvider({ children }) {
 
       try {
         if (shouldRefresh) {
-          const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
-          const nextAuth = buildAuthState(response.data);
-          if (active) {
-            setAuth(nextAuth);
-            setAuthToken(nextAuth.token);
-          }
+          await refreshSession();
         } else {
           await api.get("/auth/validate");
         }
@@ -66,7 +70,7 @@ export function AuthProvider({ children }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [auth, refreshSession]);
 
   useEffect(() => {
     if (auth?.token) {
@@ -91,15 +95,14 @@ export function AuthProvider({ children }) {
     }
     const timer = setTimeout(async () => {
       try {
-        const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
-        setAuth(buildAuthState(response.data));
+        await refreshSession();
       } catch {
         setAuth(null);
       }
     }, refreshAfter);
 
     return () => clearTimeout(timer);
-  }, [auth?.expires_at, auth?.refresh_token]);
+  }, [auth?.expires_at, auth?.refresh_token, refreshSession]);
 
   const loginTeam = async (teamId, password, isAdmin = false) => {
     const endpoint = isAdmin ? "/auth/admin-login" : "/auth/login";
@@ -121,14 +124,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const refreshSession = async () => {
-    if (!auth?.refresh_token) return null;
-    const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
-    const next = buildAuthState(response.data);
-    setAuth(next);
-    return next;
-  };
-
   const value = useMemo(
     () => ({
       auth,
@@ -139,7 +134,7 @@ export function AuthProvider({ children }) {
       isAdmin: Boolean(auth?.team?.is_admin),
       isAuthChecked
     }),
-    [auth, isAuthChecked]
+    [auth, isAuthChecked, refreshSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

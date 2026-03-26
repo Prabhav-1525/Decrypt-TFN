@@ -87,8 +87,6 @@ export default function AdminDashboardPage() {
         (team.active_puzzle_id || "").toLowerCase().includes(needle)
     );
   }, [teams, filterTerm]);
-  const allVisibleSelected = filteredTeams.length > 0 && filteredTeams.every((team) => selectedTeams.includes(team.team_id));
-
   const skipPuzzle = async (teamId) => {
     try {
       await api.post(`/admin/team/${teamId}/skip`);
@@ -148,6 +146,9 @@ export default function AdminDashboardPage() {
     );
   };
 
+  const areTeamsSelected = (teamList) =>
+    teamList.length > 0 && teamList.every((team) => selectedTeams.includes(team.team_id));
+
   const selectAllVisible = (teamList) => {
     const allIds = teamList.map((t) => t.team_id);
     setSelectedTeams((prev) => Array.from(new Set([...prev, ...allIds])));
@@ -157,7 +158,7 @@ export default function AdminDashboardPage() {
 
   const toggleVisibleSelection = (teamList) => {
     const ids = teamList.map((t) => t.team_id);
-    const allSelected = ids.length > 0 && ids.every((id) => selectedTeams.includes(id));
+    const allSelected = areTeamsSelected(teamList);
     setSelectedTeams((prev) => {
       if (allSelected) {
         return prev.filter((id) => !ids.includes(id));
@@ -165,6 +166,8 @@ export default function AdminDashboardPage() {
       return Array.from(new Set([...prev, ...ids]));
     });
   };
+
+  const allVisibleSelected = areTeamsSelected(filteredTeams);
 
   const bulkAction = async (action) => {
     if (!selectedTeams.length) {

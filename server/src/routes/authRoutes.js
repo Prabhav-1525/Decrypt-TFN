@@ -37,7 +37,7 @@ export function createAuthRouter(store) {
     const currentIso = nowIso();
     // Enforce single active session per team while pruning expired records
     data.sessions = data.sessions.filter(
-      (session) => session.expires_at > currentIso && session.team_id !== teamId
+      (session) => session.refresh_expires_at > currentIso && session.team_id !== teamId
     );
   }
 
