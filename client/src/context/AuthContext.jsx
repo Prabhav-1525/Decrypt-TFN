@@ -86,6 +86,9 @@ export function AuthProvider({ children }) {
 
     const expiresMs = new Date(auth.expires_at).getTime();
     const refreshAfter = Math.max(expiresMs - Date.now() - AUTO_REFRESH_BUFFER_MS, 0);
+    if (refreshAfter <= 0) {
+      return undefined;
+    }
     const timer = setTimeout(async () => {
       try {
         const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });

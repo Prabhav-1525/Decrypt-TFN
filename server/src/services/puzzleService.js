@@ -390,7 +390,7 @@ function applyAntiCheatPolicy(store, teamId) {
     return { penaltyApplied: false, violationCount };
   }
 
-  if (violationCount >= 5) {
+  if (violationCount > 5) {
     const result = skipCurrentPuzzle(store, teamId, {
       performed_by: "system",
       reason: "anti_cheat_penalty"
