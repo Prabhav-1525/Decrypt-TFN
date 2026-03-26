@@ -6,8 +6,10 @@ import { nowIso } from "../utils/time.js";
 import { getDashboardSnapshot } from "../services/dashboardService.js";
 import { logEvent } from "../services/puzzleService.js";
 
-const ACCESS_TOKEN_TTL_MS = Number(process.env.ACCESS_TOKEN_TTL_MINUTES || 120) * 60 * 1000;
-const REFRESH_TOKEN_TTL_MS = Number(process.env.REFRESH_TOKEN_TTL_HOURS || 48) * 60 * 60 * 1000;
+const ACCESS_TOKEN_TTL_MINUTES = Number(process.env.ACCESS_TOKEN_TTL_MINUTES || 120);
+const ACCESS_TOKEN_TTL_MS = ACCESS_TOKEN_TTL_MINUTES * 60 * 1000;
+const REFRESH_TOKEN_TTL_HOURS = Number(process.env.REFRESH_TOKEN_TTL_HOURS || 48);
+const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_HOURS * 60 * 60 * 1000;
 
 function buildSessionPayload(team, tokenId, expiresAt, refreshToken, refreshExpiresAt) {
   const token = signToken(

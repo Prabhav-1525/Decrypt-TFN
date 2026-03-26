@@ -101,7 +101,9 @@ export class DataStore {
 
   async init() {
     fs.mkdirSync(path.dirname(this.dbFile), { recursive: true });
-    const SQL = await initSqlJs();
+    const SQL = await initSqlJs({
+      locateFile: (file) => path.resolve(process.cwd(), "node_modules/sql.js/dist", file)
+    });
     const hasFile = fs.existsSync(this.dbFile);
     const fileBuffer = hasFile ? fs.readFileSync(this.dbFile) : null;
     this.sqlite = fileBuffer ? new SQL.Database(fileBuffer) : new SQL.Database();

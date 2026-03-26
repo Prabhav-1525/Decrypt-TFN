@@ -87,6 +87,7 @@ export default function AdminDashboardPage() {
         (team.active_puzzle_id || "").toLowerCase().includes(needle)
     );
   }, [teams, filterTerm]);
+  const allVisibleSelected = filteredTeams.length > 0 && filteredTeams.every((team) => selectedTeams.includes(team.team_id));
 
   const skipPuzzle = async (teamId) => {
     try {
@@ -149,10 +150,21 @@ export default function AdminDashboardPage() {
 
   const selectAllVisible = (teamList) => {
     const allIds = teamList.map((t) => t.team_id);
-    setSelectedTeams(allIds);
+    setSelectedTeams((prev) => Array.from(new Set([...prev, ...allIds])));
   };
 
   const clearSelection = () => setSelectedTeams([]);
+
+  const toggleVisibleSelection = (teamList) => {
+    const ids = teamList.map((t) => t.team_id);
+    const allSelected = ids.length > 0 && ids.every((id) => selectedTeams.includes(id));
+    setSelectedTeams((prev) => {
+      if (allSelected) {
+        return prev.filter((id) => !ids.includes(id));
+      }
+      return Array.from(new Set([...prev, ...ids]));
+    });
+  };
 
   const bulkAction = async (action) => {
     if (!selectedTeams.length) {
@@ -295,8 +307,8 @@ export default function AdminDashboardPage() {
                   <th>
                     <input
                       type="checkbox"
-                      checked={filteredTeams.length > 0 && selectedTeams.length === filteredTeams.length}
-                      onChange={(event) => (event.target.checked ? selectAllVisible(filteredTeams) : clearSelection())}
+                      checked={allVisibleSelected}
+                      onChange={() => toggleVisibleSelection(filteredTeams)}
                     />
                   </th>
                   <th>Team</th>
