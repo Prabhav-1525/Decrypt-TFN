@@ -196,6 +196,9 @@ export function createAuthRouter(store) {
   });
 
   router.get("/validate", authenticateToken, (req, res) => {
+    if (isRateLimited(`validate:${req.user.team_id}`, 120, RATE_LIMIT_WINDOW_MS)) {
+      return res.status(429).json({ message: "Too many validation checks. Please slow down." });
+    }
     return res.json({
       ok: true,
       team: {
