@@ -21,7 +21,7 @@ export default function AudioWorkbench() {
     file.arrayBuffer().then((buf) => {
       if (!canvasRef.current) return;
       const audioCtx = new AudioContext();
-      audioCtx.decodeAudioData(buf.slice(0)).then((audioBuffer) => {
+      audioCtx.decodeAudioData(buf).then((audioBuffer) => {
         const channelData = audioBuffer.getChannelData(0).slice(0, 2048);
         const ctx = canvasRef.current.getContext("2d");
         canvasRef.current.width = 400;

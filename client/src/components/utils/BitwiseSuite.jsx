@@ -11,6 +11,7 @@ function bitwiseOp(a, b, type) {
     case "xor":
       return (x ^ y).toString(2);
     case "not":
+      // Force unsigned representation to keep 32-bit mask readable in binary.
       return (~x >>> 0).toString(2);
     default:
       return "";

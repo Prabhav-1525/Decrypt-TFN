@@ -218,7 +218,7 @@ export function getCurrentPuzzleForTeam(store, teamId) {
       validation_mode: puzzle?.validation_mode || "content",
       expected_file_name: puzzle?.expected_file_name || null,
       asset_files: [],
-      puzzle_type: puzzle.puzzle_type || null,
+      puzzle_type: puzzle?.puzzle_type || null,
       toolConfig,
       hints,
       hint_penalties: puzzle?.hint_penalties || DEFAULT_HINT_PENALTIES

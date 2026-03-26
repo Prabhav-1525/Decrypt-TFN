@@ -19,7 +19,7 @@ function binaryToIp(bin) {
 function calcSubnet(ip, cidr) {
   const octets = ip.split(".").map((n) => Number(n));
   if (octets.length !== 4 || octets.some((o) => Number.isNaN(o) || o < 0 || o > 255)) return null;
-  const mask = cidr ? cidr : 24;
+  const mask = cidr || 24;
   const maskBits = (0xffffffff << (32 - mask)) >>> 0;
   const ipNum = octets.reduce((acc, o) => (acc << 8) + o, 0) >>> 0;
   const network = ipNum & maskBits;
