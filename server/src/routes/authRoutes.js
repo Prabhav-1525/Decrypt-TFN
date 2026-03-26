@@ -41,8 +41,16 @@ function buildRateLimiter(keyBuilder, limit = RATE_LIMIT_MAX, windowMs = RATE_LI
 }
 
 const refreshRateLimiter = buildRateLimiter((req) => `refresh:${req.ip}`, 30, RATE_LIMIT_WINDOW_MS);
-const logoutRateLimiter = buildRateLimiter((req) => `logout:${req.user?.team_id || req.ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
-const validateRateLimiter = buildRateLimiter((req) => `validate:${req.user?.team_id || req.ip}`, 120, RATE_LIMIT_WINDOW_MS);
+const logoutRateLimiter = buildRateLimiter(
+  (req) => `logout:${req.user?.team_id || req.ip}`,
+  RATE_LIMIT_MAX,
+  RATE_LIMIT_WINDOW_MS
+);
+const validateRateLimiter = buildRateLimiter(
+  (req) => `validate:${req.user?.team_id || req.ip}`,
+  120,
+  RATE_LIMIT_WINDOW_MS
+);
 
 function buildSessionPayload(team, tokenId, expiresAt, refreshToken, refreshExpiresAt) {
   const token = signToken(
@@ -186,7 +194,7 @@ export function createAuthRouter(store) {
     return res.json(payload);
   });
 
-  router.post("/logout", authenticateToken, logoutRateLimiter, (req, res) => {
+  router.post("/logout", logoutRateLimiter, authenticateToken, (req, res) => {
     const { refreshToken } = req.body || {};
     const tokenId = req.user.token_id;
     const teamId = req.user.team_id;
@@ -206,7 +214,7 @@ export function createAuthRouter(store) {
     return res.json({ ok: true });
   });
 
-  router.get("/validate", authenticateToken, validateRateLimiter, (req, res) => {
+  router.get("/validate", validateRateLimiter, authenticateToken, (req, res) => {
     return res.json({
       ok: true,
       team: {
