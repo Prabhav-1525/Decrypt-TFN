@@ -27,6 +27,23 @@ function isRateLimited(key, limit = RATE_LIMIT_MAX, windowMs = RATE_LIMIT_WINDOW
   return false;
 }
 
+function buildRateLimiter(keyBuilder, limit = RATE_LIMIT_MAX, windowMs = RATE_LIMIT_WINDOW_MS) {
+  return (req, res, next) => {
+    const key = keyBuilder(req);
+    if (!key) {
+      return next();
+    }
+    if (isRateLimited(key, limit, windowMs)) {
+      return res.status(429).json({ message: "Too many requests. Please try again shortly." });
+    }
+    return next();
+  };
+}
+
+const refreshRateLimiter = buildRateLimiter((req) => `refresh:${req.ip}`, 30, RATE_LIMIT_WINDOW_MS);
+const logoutRateLimiter = buildRateLimiter((req) => `logout:${req.user?.team_id || req.ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+const validateRateLimiter = buildRateLimiter((req) => `validate:${req.user?.team_id || req.ip}`, 120, RATE_LIMIT_WINDOW_MS);
+
 function buildSessionPayload(team, tokenId, expiresAt, refreshToken, refreshExpiresAt) {
   const token = signToken(
     { team_id: team.team_id, team_name: team.team_name, is_admin: team.is_admin, token_id: tokenId },
@@ -145,11 +162,8 @@ export function createAuthRouter(store) {
     return res.json(sessionPayload);
   });
 
-  router.post("/refresh", (req, res) => {
+  router.post("/refresh", refreshRateLimiter, (req, res) => {
     const { refreshToken } = req.body || {};
-    if (isRateLimited(`refresh:${req.ip}`, 30, RATE_LIMIT_WINDOW_MS)) {
-      return res.status(429).json({ message: "Too many refresh attempts. Please try again shortly." });
-    }
     if (!refreshToken) {
       return res.status(400).json({ message: "refreshToken is required." });
     }
@@ -172,13 +186,10 @@ export function createAuthRouter(store) {
     return res.json(payload);
   });
 
-  router.post("/logout", authenticateToken, (req, res) => {
+  router.post("/logout", authenticateToken, logoutRateLimiter, (req, res) => {
     const { refreshToken } = req.body || {};
     const tokenId = req.user.token_id;
     const teamId = req.user.team_id;
-    if (isRateLimited(`logout:${teamId}`)) {
-      return res.status(429).json({ message: "Too many logout attempts. Please try again shortly." });
-    }
 
     store.write((data) => {
       data.sessions = data.sessions.filter(
@@ -195,10 +206,7 @@ export function createAuthRouter(store) {
     return res.json({ ok: true });
   });
 
-  router.get("/validate", authenticateToken, (req, res) => {
-    if (isRateLimited(`validate:${req.user.team_id}`, 120, RATE_LIMIT_WINDOW_MS)) {
-      return res.status(429).json({ message: "Too many validation checks. Please slow down." });
-    }
+  router.get("/validate", authenticateToken, validateRateLimiter, (req, res) => {
     return res.json({
       ok: true,
       team: {
