@@ -5,6 +5,16 @@ const AuthContext = createContext(null);
 
 const STORAGE_KEY = "puzzle-platform-auth";
 
+function buildAuthState(data) {
+  return {
+    token: data.token,
+    refresh_token: data.refresh_token,
+    expires_at: data.expires_at,
+    refresh_expires_at: data.refresh_expires_at,
+    team: data.team
+  };
+}
+
 export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -15,7 +25,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let active = true;
 
-    const validate = async () => {
+    const refreshIfNeeded = async () => {
       if (!auth?.token) {
         if (active) {
           setIsAuthChecked(true);
@@ -24,9 +34,21 @@ export function AuthProvider({ children }) {
       }
 
       setAuthToken(auth.token);
+      const now = Date.now();
+      const expiresAt = auth.expires_at ? new Date(auth.expires_at).getTime() : 0;
+      const shouldRefresh = auth.refresh_token && expiresAt > 0 && expiresAt - now < 5 * 60 * 1000;
 
       try {
-        await api.get("/auth/validate");
+        if (shouldRefresh) {
+          const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
+          const nextAuth = buildAuthState(response.data);
+          if (active) {
+            setAuth(nextAuth);
+            setAuthToken(nextAuth.token);
+          }
+        } else {
+          await api.get("/auth/validate");
+        }
       } catch {
         if (active) {
           setAuth(null);
@@ -38,7 +60,7 @@ export function AuthProvider({ children }) {
       }
     };
 
-    validate();
+    refreshIfNeeded();
     return () => {
       active = false;
     };
@@ -55,18 +77,51 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(STORAGE_KEY);
   }, [auth]);
 
+  useEffect(() => {
+    if (!auth?.expires_at || !auth?.refresh_token) {
+      return undefined;
+    }
+
+    const expiresMs = new Date(auth.expires_at).getTime();
+    const refreshAfter = Math.max(expiresMs - Date.now() - 2 * 60 * 1000, 0);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
+        setAuth(buildAuthState(response.data));
+      } catch {
+        setAuth(null);
+      }
+    }, refreshAfter);
+
+    return () => clearTimeout(timer);
+  }, [auth?.expires_at, auth?.refresh_token]);
+
   const loginTeam = async (teamId, password, isAdmin = false) => {
     const endpoint = isAdmin ? "/auth/admin-login" : "/auth/login";
     const response = await api.post(endpoint, { teamId, password });
-    setAuth({
-      token: response.data.token,
-      team: response.data.team
-    });
+    setAuth(buildAuthState(response.data));
     return response.data;
   };
 
-  const logout = () => {
-    setAuth(null);
+  const logout = async () => {
+    try {
+      if (auth?.token) {
+        setAuthToken(auth.token);
+        await api.post("/auth/logout", { refreshToken: auth?.refresh_token });
+      }
+    } catch {
+      // ignore logout errors for client hygiene
+    } finally {
+      setAuth(null);
+    }
+  };
+
+  const refreshSession = async () => {
+    if (!auth?.refresh_token) return null;
+    const response = await api.post("/auth/refresh", { refreshToken: auth.refresh_token });
+    const next = buildAuthState(response.data);
+    setAuth(next);
+    return next;
   };
 
   const value = useMemo(
@@ -74,6 +129,7 @@ export function AuthProvider({ children }) {
       auth,
       loginTeam,
       logout,
+      refreshSession,
       isAuthenticated: Boolean(auth?.token),
       isAdmin: Boolean(auth?.team?.is_admin),
       isAuthChecked

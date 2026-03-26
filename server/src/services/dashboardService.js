@@ -1,5 +1,4 @@
-import { getRemainingSeconds } from "../utils/time.js";
-import { normalizeAssignments } from "./puzzleService.js";
+import { getAssignmentRemainingSeconds, normalizeAssignments } from "./puzzleService.js";
 
 export function getDashboardSnapshot(store) {
   normalizeAssignments(store);
@@ -22,9 +21,8 @@ export function getDashboardSnapshot(store) {
         team_name: team.team_name,
         active_puzzle_id: activePuzzle ? activePuzzle.puzzle_id : null,
         active_puzzle_text: activePuzzle ? activePuzzle.puzzle_text : null,
-        remaining_seconds: activeAssignment
-          ? getRemainingSeconds(activeAssignment.start_time, activeAssignment.time_limit_sec)
-          : 0,
+        remaining_seconds: activeAssignment ? getAssignmentRemainingSeconds(activeAssignment) : 0,
+        is_timer_paused: activeAssignment?.paused || false,
         attempts: attempts.length,
         solved_count: solved.length,
         score: solved.reduce((sum, assignment) => {
