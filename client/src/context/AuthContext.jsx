@@ -26,7 +26,14 @@ export function AuthProvider({ children }) {
       setAuthToken(auth.token);
 
       try {
-        await api.get("/auth/validate");
+        const response = await api.get("/auth/validate");
+        const refresh = await api.post("/auth/refresh");
+        if (active) {
+          setAuth({
+            token: refresh.data.token,
+            team: response.data.team
+          });
+        }
       } catch {
         if (active) {
           setAuth(null);
@@ -65,7 +72,12 @@ export function AuthProvider({ children }) {
     return response.data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // best-effort
+    }
     setAuth(null);
   };
 

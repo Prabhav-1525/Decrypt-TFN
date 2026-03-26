@@ -37,7 +37,7 @@
       "submission_mode": "file",
       "expected_file_name": "solution.txt",
       "source_folder": "404_intentional_error_puzzle",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "logo.png",
@@ -99,7 +99,7 @@
     },
     {
       "puzzle_id": "FB002",
-      "puzzle_text": "Numeric ASCII Art — Sample Puzzle\n================================\n\nFiles included:\n  • puzzle.txt — ASCII art composed of numeric characters; the big shapes spell the secret word.\n  • verifier.py — runs locally to check participant answers.\n  • organizer_solution.txt — the final answer (for organizers only).\n  • README.txt — this file.\n\nParticipant instructions:\n  1) Open puzzle.txt in any text editor with a monospaced font.\n  2) Inspect the large number shapes — they form letters when viewed from a distance.\n  3) The secret follows the format: NUMKEY: <WORD>\n  4) Once you have the answer, run the verifier and enter it exactly (case-sensitive).\n\nHow to run the verifier:\nOpen a terminal/command prompt → navigate to the folder using cd <your_folder_path> → run the command:\npython verifier.py\n\nOrganizer notes:\n  • You can change the ASCII art to a different target word; update organizer_solution.txt\n    and the EXPECTED value inside verifier.py accordingly.\n  • For extra challenge, hide the art inside a larger file or obfuscate spacing.",
+      "puzzle_text": "Numeric ASCII Art \u2014 Sample Puzzle\n================================\n\nFiles included:\n  \u2022 puzzle.txt \u2014 ASCII art composed of numeric characters; the big shapes spell the secret word.\n  \u2022 verifier.py \u2014 runs locally to check participant answers.\n  \u2022 organizer_solution.txt \u2014 the final answer (for organizers only).\n  \u2022 README.txt \u2014 this file.\n\nParticipant instructions:\n  1) Open puzzle.txt in any text editor with a monospaced font.\n  2) Inspect the large number shapes \u2014 they form letters when viewed from a distance.\n  3) The secret follows the format: NUMKEY: <WORD>\n  4) Once you have the answer, run the verifier and enter it exactly (case-sensitive).\n\nHow to run the verifier:\nOpen a terminal/command prompt \u2192 navigate to the folder using cd <your_folder_path> \u2192 run the command:\npython verifier.py\n\nOrganizer notes:\n  \u2022 You can change the ASCII art to a different target word; update organizer_solution.txt\n    and the EXPECTED value inside verifier.py accordingly.\n  \u2022 For extra challenge, hide the art inside a larger file or obfuscate spacing.",
       "correct_answer": "COSC 7989",
       "validation_mode": "content",
       "expected_output": null,
@@ -108,7 +108,7 @@
       "submission_mode": "file",
       "expected_file_name": "organizer_solution.txt",
       "source_folder": "ascii_numeric_sample",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "organizer_solution.txt",
@@ -155,7 +155,7 @@
       "submission_mode": "file",
       "expected_file_name": "solution.txt",
       "source_folder": "audio_morse_sample",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "decode_with_audacity.txt",
@@ -217,7 +217,7 @@
     },
     {
       "puzzle_id": "FB004",
-      "puzzle_text": "Instructions\n\nYou are given a file containing coordinates in the format:\n\npage:word:letter\n\n\nExample: 12:4:1 → means go to page 12, take the 4th word, and extract its 1st letter.\n\nUse the provided Book.txt (or the previous puzzle text if mentioned).\n\nNavigate to the correct page.\n\nFind the correct word.\n\nPick the correct letter.\n\nCollect all the extracted letters in sequence.\n\nThese letters will form a hidden word (the secret key).\n\nExample\n\nIf the coordinate is 5:2:3 →\n\nPage 5, Word 2 = “Puzzle”\n\nLetter 3 = “z”\n\nVerification\n\nOnce you have assembled the final word, verify it by running:\n\ncd <your_folder_path>\npython verifier.py\n\n\nThe program will check your word and confirm if it’s correct. ✅",
+      "puzzle_text": "Instructions\n\nYou are given a file containing coordinates in the format:\n\npage:word:letter\n\n\nExample: 12:4:1 \u2192 means go to page 12, take the 4th word, and extract its 1st letter.\n\nUse the provided Book.txt (or the previous puzzle text if mentioned).\n\nNavigate to the correct page.\n\nFind the correct word.\n\nPick the correct letter.\n\nCollect all the extracted letters in sequence.\n\nThese letters will form a hidden word (the secret key).\n\nExample\n\nIf the coordinate is 5:2:3 \u2192\n\nPage 5, Word 2 = \u201cPuzzle\u201d\n\nLetter 3 = \u201cz\u201d\n\nVerification\n\nOnce you have assembled the final word, verify it by running:\n\ncd <your_folder_path>\npython verifier.py\n\n\nThe program will check your word and confirm if it\u2019s correct. \u2705",
       "correct_answer": "Treasure",
       "validation_mode": "content",
       "expected_output": null,
@@ -226,7 +226,7 @@
       "submission_mode": "file",
       "expected_file_name": "solution.txt",
       "source_folder": "book_cipher_puzzle",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "book.txt",
@@ -289,7 +289,7 @@
       "submission_mode": "file",
       "expected_file_name": "solution.py",
       "source_folder": "fix_errors_organizer_pack",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "README_organizer.txt",
@@ -336,7 +336,7 @@
       "submission_mode": "file",
       "expected_file_name": "buggy_puzzle.py",
       "source_folder": "fix_errors_participant_pack",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "buggy_puzzle.py",
@@ -366,7 +366,7 @@
     },
     {
       "puzzle_id": "FB007",
-      "puzzle_text": "HTML Inspect Elements — Sample Puzzle\n=====================================\n\nFiles:\n  • puzzle.html — the web page containing hidden clues.\n  • verifier.py — a script to verify a participant's answer.\n  • organizer_solution.txt — the solution (for organizers only).\n\nParticipant Instructions (sample):\n  1) Open puzzle.html in a web browser.\n  2) The visible page looks ordinary, but the real clues are hidden.\n  3) Right-click -> \"Inspect\" or \"View Page Source\".\n  4) Hidden comments, invisible elements, and CSS may contain secrets.\n  5) Find the final key and verify with verifier.py.\n\nExpected format:\n  HIDDENKEY: PHOENIX\n\nHow to run the verifier:\nOpen a terminal/command prompt → navigate to the folder using cd <your_folder_path> → run the command:\n\npython verifier.py\n\nOrganizer Notes:\n  • The hidden solution string is embedded in HTML comments and hidden <div>.\n  • You may replace \"PHOENIX\" with another phrase of your choice.\n  • Update verifier.py accordingly if you change the expected key.",
+      "puzzle_text": "HTML Inspect Elements \u2014 Sample Puzzle\n=====================================\n\nFiles:\n  \u2022 puzzle.html \u2014 the web page containing hidden clues.\n  \u2022 verifier.py \u2014 a script to verify a participant's answer.\n  \u2022 organizer_solution.txt \u2014 the solution (for organizers only).\n\nParticipant Instructions (sample):\n  1) Open puzzle.html in a web browser.\n  2) The visible page looks ordinary, but the real clues are hidden.\n  3) Right-click -> \"Inspect\" or \"View Page Source\".\n  4) Hidden comments, invisible elements, and CSS may contain secrets.\n  5) Find the final key and verify with verifier.py.\n\nExpected format:\n  HIDDENKEY: PHOENIX\n\nHow to run the verifier:\nOpen a terminal/command prompt \u2192 navigate to the folder using cd <your_folder_path> \u2192 run the command:\n\npython verifier.py\n\nOrganizer Notes:\n  \u2022 The hidden solution string is embedded in HTML comments and hidden <div>.\n  \u2022 You may replace \"PHOENIX\" with another phrase of your choice.\n  \u2022 Update verifier.py accordingly if you change the expected key.",
       "correct_answer": "HIDDENKEY: PHOENIX",
       "validation_mode": "content",
       "expected_output": null,
@@ -375,7 +375,7 @@
       "submission_mode": "file",
       "expected_file_name": "organizer_solution.txt",
       "source_folder": "html_inspect_sample",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "organizer_solution.txt",
@@ -413,7 +413,7 @@
     },
     {
       "puzzle_id": "FB008",
-      "puzzle_text": "Image Cipher — Sample Puzzle\n================================\n\nFiles included:\n  • visible_cipher.png — contains a image which has the answer\n  • README.txt — this file.\n\nParticipant instructions:\n  1) Open visible_cipher.png in any image editor (preferred to edit it with photos) \n  2) Adjust and play with various settings of images i.e like contrast,shadows etc to reveal the clue",
+      "puzzle_text": "Image Cipher \u2014 Sample Puzzle\n================================\n\nFiles included:\n  \u2022 visible_cipher.png \u2014 contains a image which has the answer\n  \u2022 README.txt \u2014 this file.\n\nParticipant instructions:\n  1) Open visible_cipher.png in any image editor (preferred to edit it with photos) \n  2) Adjust and play with various settings of images i.e like contrast,shadows etc to reveal the clue",
       "correct_answer": "REVEALED",
       "validation_mode": "content",
       "expected_output": null,
@@ -422,7 +422,7 @@
       "submission_mode": "file",
       "expected_file_name": "solution.txt",
       "source_folder": "ImageCipher",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "README.txt",
@@ -452,7 +452,7 @@
     },
     {
       "puzzle_id": "FB009",
-      "puzzle_text": "Random maze sample generated with seed 1228709\nFiles:\n- maze_NO_SOLUTION.png\n- maze_WITH_SOLUTION.png\n- moves.txt\n- correct_moves_readable.txt\n- compressed_runs.txt\n- verifier_auto.py\n\nUsage: put your moves in user_moves.txt and run verifier_auto.py\n\nHow to run the verifier:\nOpen a terminal/command prompt → navigate to the folder using cd <your_folder_path> → run the command:\npython verifier_auto.py",
+      "puzzle_text": "Random maze sample generated with seed 1228709\nFiles:\n- maze_NO_SOLUTION.png\n- maze_WITH_SOLUTION.png\n- moves.txt\n- correct_moves_readable.txt\n- compressed_runs.txt\n- verifier_auto.py\n\nUsage: put your moves in user_moves.txt and run verifier_auto.py\n\nHow to run the verifier:\nOpen a terminal/command prompt \u2192 navigate to the folder using cd <your_folder_path> \u2192 run the command:\npython verifier_auto.py",
       "correct_answer": "R,R,R,R,R,R,D,D,D,D,L,L,L,L,L,L,D,D,R,R,D,D,L,L,D,D,D,D,R,R,R,R,D,D,L,L,L,L,D,D,D,D,D,D,R,R,D,D,R,R,R,R,U,U,L,L,U,U,R,R,U,U,U,U,R,R,R,R,D,D,L,L,D,D,D,D,R,R,U,U,R,R,R,R,R,R,R,R,D,D,L,L,L,L,D,D,D,D,D,D,R,R,U,U,U,U,R,R,R,R,D,D,L,L,D,D,R,R,D,D,L,L,L,L,D,D,R,R,D,D,L,L,L,L,U,U,L,L,U,U,U,U,L,L,L,L,D,D,D,D,D,D,R,R,D,D,L,L,D,D,L,L,D,D,R,R,R,R,R,R,R,R,R,R,U,U,R,R,D,D,R,R,R,R,R,R,U,U,R,R,R,R,U,U,U,U,L,L,D,D,L,L,L,L,D,D,L,L,U,U,U,U,U,U,R,R,U,U,R,R,U,U,R,R,D,D,D,D,R,R,U,U,U,U,R,R,D,D,R,R,U,U,U,U,R,R,D,D,D,D,D,D,D,D,L,L,U,U,L,L,D,D,D,D,D,D,D,D,R,R,U,U,R,R,U,U,R,R,U,U,U,U,R,R,D,D,D,D,D,D,D,D",
       "validation_mode": "content",
       "expected_output": null,
@@ -461,7 +461,7 @@
       "submission_mode": "file",
       "expected_file_name": "correct_moves_readable.txt",
       "source_folder": "maze_300_moves",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "compressed_runs.txt",
@@ -531,7 +531,7 @@
     },
     {
       "puzzle_id": "FB010",
-      "puzzle_text": "Progressive Caesar Cipher — Sample\n===================================\n\nRule:\n- Take the plaintext letters A–Z (ignore spaces/punctuation for indexing).\n- For the 1st letter shift by ROT1, 2nd letter by ROT2, 3rd by ROT3, and so on.\n- Preserve case; non-letters are copied unchanged and DO NOT increase the shift index.\n\nExample plaintext:\n    MEET AT NOON\n\nProgressive shifts (letters only):\n    M(+1) E(+2) E(+3) T(+4)  A(+5) T(+6)  N(+7) O(+8) O(+9) N(+10)\n\nCiphertext:\n    NGHX FZ UWXX\n\nFiles in this folder:\n- plaintext.txt        -> the example plaintext\n- cipher.txt           -> the resulting progressive-caesar ciphertext\n- encrypt.py           -> encodes any input using Progressive Caesar\n- decrypt.py           -> decodes Progressive Caesar back to plaintext\n- verifier.py          -> asks user for the decoded phrase and verifies\n- README.txt           -> this file\n\nHow to use (quick):\n1) Encode your own text:\n       python encrypt.py \"HELLO WORLD\"\n   Output will print on screen.\n\n2) Decode the provided cipher:\n       python decrypt.py cipher.txt\n   Should output: MEET AT NOON\n\nHow to run the verifier:\nOpen a terminal/command prompt → navigate to the folder using cd <your_folde...",
+      "puzzle_text": "Progressive Caesar Cipher \u2014 Sample\n===================================\n\nRule:\n- Take the plaintext letters A\u2013Z (ignore spaces/punctuation for indexing).\n- For the 1st letter shift by ROT1, 2nd letter by ROT2, 3rd by ROT3, and so on.\n- Preserve case; non-letters are copied unchanged and DO NOT increase the shift index.\n\nExample plaintext:\n    MEET AT NOON\n\nProgressive shifts (letters only):\n    M(+1) E(+2) E(+3) T(+4)  A(+5) T(+6)  N(+7) O(+8) O(+9) N(+10)\n\nCiphertext:\n    NGHX FZ UWXX\n\nFiles in this folder:\n- plaintext.txt        -> the example plaintext\n- cipher.txt           -> the resulting progressive-caesar ciphertext\n- encrypt.py           -> encodes any input using Progressive Caesar\n- decrypt.py           -> decodes Progressive Caesar back to plaintext\n- verifier.py          -> asks user for the decoded phrase and verifies\n- README.txt           -> this file\n\nHow to use (quick):\n1) Encode your own text:\n       python encrypt.py \"HELLO WORLD\"\n   Output will print on screen.\n\n2) Decode the provided cipher:\n       python decrypt.py cipher.txt\n   Should output: MEET AT NOON\n\nHow to run the verifier:\nOpen a terminal/command prompt \u2192 navigate to the folder using cd <your_folde...",
       "correct_answer": "MEET AT NOON",
       "validation_mode": "content",
       "expected_output": null,
@@ -540,7 +540,7 @@
       "submission_mode": "file",
       "expected_file_name": "solution.txt",
       "source_folder": "progressive_caesar_sample",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "cipher.txt",
@@ -602,7 +602,7 @@
     },
     {
       "puzzle_id": "FB011",
-      "puzzle_text": "# Simple Reverse Text — College Puzzle (Sample)\n\nWelcome to **Simple Reverse Text**! Each line in `puzzle.txt` is an English phrase written **backwards** (character-by-character).\n\n## Your Task\n1. Decode each line back into readable English.\n2. Put your decoded answers (one per line, in the **same order**) into a file named `answers.txt`.\n3. Run the verifier to check your work and reveal the final code.\n\n## How to run the verifier:\nOpen a terminal/command prompt → navigate to the folder using cd <your_folder_path> → run the command:\npython verifier.py\n\n- If everything is correct, you'll see **SUCCESS** and the **Final Code**.\n- If something is off, the verifier will show which line failed.\n\n## Hints\n- Don't overthink it — it's a plain character reversal.\n- Preserve punctuation and spacing exactly as in the decoded phrase.\n- The **first character** of each decoded line (ignoring leading spaces) spells a final 10-character code when concatenated: you should get something like a tech-fest themed code.\n\n## Files\n- `puzzle.txt` — the encoded phrases you must decode.\n- `verifier.py` — checks your answers and prints the final code.\n- `answer_template.txt` — a blank template with the co...",
+      "puzzle_text": "# Simple Reverse Text \u2014 College Puzzle (Sample)\n\nWelcome to **Simple Reverse Text**! Each line in `puzzle.txt` is an English phrase written **backwards** (character-by-character).\n\n## Your Task\n1. Decode each line back into readable English.\n2. Put your decoded answers (one per line, in the **same order**) into a file named `answers.txt`.\n3. Run the verifier to check your work and reveal the final code.\n\n## How to run the verifier:\nOpen a terminal/command prompt \u2192 navigate to the folder using cd <your_folder_path> \u2192 run the command:\npython verifier.py\n\n- If everything is correct, you'll see **SUCCESS** and the **Final Code**.\n- If something is off, the verifier will show which line failed.\n\n## Hints\n- Don't overthink it \u2014 it's a plain character reversal.\n- Preserve punctuation and spacing exactly as in the decoded phrase.\n- The **first character** of each decoded line (ignoring leading spaces) spells a final 10-character code when concatenated: you should get something like a tech-fest themed code.\n\n## Files\n- `puzzle.txt` \u2014 the encoded phrases you must decode.\n- `verifier.py` \u2014 checks your answers and prints the final code.\n- `answer_template.txt` \u2014 a blank template with the co...",
       "correct_answer": "Create cool puzzles\nOpen minds daily\nDebug every bug\nExplore new ideas\nFun fuels learning\nEngage with tech\nSolve smart, not hard\nThink before you code\n2 tricks beat 1\n5 stars to you!",
       "validation_mode": "content",
       "expected_output": null,
@@ -611,7 +611,7 @@
       "submission_mode": "file",
       "expected_file_name": "organizer_solution.txt",
       "source_folder": "SimpleReverseText_Puzzle",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "answer_template.txt",
@@ -673,7 +673,7 @@
     },
     {
       "puzzle_id": "FB012",
-      "puzzle_text": "# Time-Based OTP (Visual) — Sample Puzzle\n\n**Concept:** Read letters from an analog \"alphabet clock.\" Each dial shows two hands:\n- **Hour hand** points to the **first letter**.\n- **Minute hand** points to the **second letter**.\n\nConcatenate the letters from each dial in order to reveal the final word.\n\n## What Players See\n- `puzzle.png` — three dials, each with hour+minute hands pointing to letters.\n  - Use the printed A–Z ring (A at 12 o’clock, proceeding clockwise).\n  - For each dial, read **Hour** then **Minute** → two letters.\n  - Put them together across dials (Dial 1, then 2, then 3).\n\n## Deliverables in this Pack\n- `base_dial.png` — the clean alphabet dial (for re-use in future puzzles).\n- `puzzle.png` — the actual puzzle image for players.\n- `verifier.py` — script to validate the final word.\n- `answer.txt` — organizer's solution (keep hidden from players).\n- `puzzle_spec.json` — hour/minute letter pairs used to construct this sample.\n- `README.md` — these instructions.\n\n## How to run the verifier:\nOpen a terminal/command prompt → navigate to the folder using cd <your_folder_path> → run the command:\npython verifier.py\n\n## How to Verify (for organizers or after teams submi...",
+      "puzzle_text": "# Time-Based OTP (Visual) \u2014 Sample Puzzle\n\n**Concept:** Read letters from an analog \"alphabet clock.\" Each dial shows two hands:\n- **Hour hand** points to the **first letter**.\n- **Minute hand** points to the **second letter**.\n\nConcatenate the letters from each dial in order to reveal the final word.\n\n## What Players See\n- `puzzle.png` \u2014 three dials, each with hour+minute hands pointing to letters.\n  - Use the printed A\u2013Z ring (A at 12 o\u2019clock, proceeding clockwise).\n  - For each dial, read **Hour** then **Minute** \u2192 two letters.\n  - Put them together across dials (Dial 1, then 2, then 3).\n\n## Deliverables in this Pack\n- `base_dial.png` \u2014 the clean alphabet dial (for re-use in future puzzles).\n- `puzzle.png` \u2014 the actual puzzle image for players.\n- `verifier.py` \u2014 script to validate the final word.\n- `answer.txt` \u2014 organizer's solution (keep hidden from players).\n- `puzzle_spec.json` \u2014 hour/minute letter pairs used to construct this sample.\n- `README.md` \u2014 these instructions.\n\n## How to run the verifier:\nOpen a terminal/command prompt \u2192 navigate to the folder using cd <your_folder_path> \u2192 run the command:\npython verifier.py\n\n## How to Verify (for organizers or after teams submi...",
       "correct_answer": "CODE",
       "validation_mode": "content",
       "expected_output": null,
@@ -682,7 +682,7 @@
       "submission_mode": "file",
       "expected_file_name": "solution.txt",
       "source_folder": "TimeBasedOTP_Puzzle",
-      "source_root": "c:\\Users\\sarth\\Desktop\\Puzzle Platform\\server\\puzzle_bank",
+      "source_root": "puzzle_bank",
       "asset_files": [
         {
           "filename": "answer.txt",

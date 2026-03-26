@@ -30,6 +30,7 @@ export default function ParticipantPage() {
     try {
       const response = await api.get("/team/status");
       setStatus(response.data);
+      setViolations(response.data?.violation_profile?.count || 0);
       setError("");
     } catch (requestError) {
       if (requestError?.response?.status === 401) {
@@ -58,7 +59,7 @@ export default function ParticipantPage() {
   }, [loadStatus]);
 
   useEffect(() => {
-    if (!status || status.completed || !status.assignment) {
+    if (!status || status.completed || !status.assignment || status.assignment.status === "paused") {
       return undefined;
     }
 
@@ -89,6 +90,8 @@ export default function ParticipantPage() {
   }, [status]);
 
   const lockEnforced = lifelineRemainingSeconds <= 0;
+  const isSuspended = Boolean(status?.suspended);
+  const isPaused = status?.assignment?.status === "paused";
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -273,6 +276,16 @@ export default function ParticipantPage() {
             </article>
           </div>
         </section>
+      ) : status?.suspended ? (
+        <section className="card warning-card centered-card" style={{ padding: '32px' }}>
+          <span className="eyebrow" style={{ color: 'var(--accent-secondary)' }}>Access Suspended</span>
+          <h2>Anti-cheat policy enforced</h2>
+          <p className="muted" style={{ maxWidth: '600px', margin: '12px auto' }}>
+            Your session has been suspended due to repeated violations. You may resume after{" "}
+            {status?.suspended_until ? new Date(status.suspended_until).toLocaleTimeString() : "the penalty period"}.
+          </p>
+          <p className="muted">Please keep the window focused and avoid restricted actions.</p>
+        </section>
       ) : (
         <>
           <section className="stats-grid">
@@ -297,6 +310,11 @@ export default function ParticipantPage() {
               <h2 className={violations >= 3 ? "danger-text" : ""}>{violations}</h2>
             </article>
           </section>
+          {isPaused && (
+            <p className="info-text" style={{ marginBottom: '16px' }}>
+              Timer paused by administrator. Please stand by.
+            </p>
+          )}
 
           <section className="card puzzle-card">
             <div className="card-header">
@@ -319,7 +337,7 @@ export default function ParticipantPage() {
                       value={submissionContent}
                       onChange={(event) => setSubmissionContent(event.target.value)}
                       placeholder="// Write your solution logic here..."
-                      disabled={(status?.remaining_seconds || 0) <= 0}
+                      disabled={(status?.remaining_seconds || 0) <= 0 || isSuspended || isPaused}
                       required
                     />
                   </label>
@@ -327,13 +345,13 @@ export default function ParticipantPage() {
               ) : (
                 <label>
                    <span className="eyebrow" style={{ fontSize: '0.7rem' }}>Passcode Entry</span>
-                  <input
-                    type="text"
-                    className="mono"
+                   <input
+                     type="text"
+                     className="mono"
                     value={answer}
                     onChange={(event) => setAnswer(event.target.value)}
                     placeholder="Enter decryption key..."
-                    disabled={(status?.remaining_seconds || 0) <= 0}
+                    disabled={(status?.remaining_seconds || 0) <= 0 || isSuspended || isPaused}
                     required
                   />
                 </label>
@@ -344,19 +362,23 @@ export default function ParticipantPage() {
                     className="btn btn-outline"
                     type="button"
                     onClick={runCode}
-                    disabled={(status?.remaining_seconds || 0) <= 0 || !submissionContent.trim()}
+                    disabled={(status?.remaining_seconds || 0) <= 0 || !submissionContent.trim() || isSuspended || isPaused}
                   >
                     Test Solution
                   </button>
                 )}
-                <button className="btn btn-primary" type="submit" disabled={(status?.remaining_seconds || 0) <= 0}>
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                  disabled={(status?.remaining_seconds || 0) <= 0 || isSuspended || isPaused}
+                >
                   Submit Answer
                 </button>
                 <button
                   className="btn btn-accent"
                   type="button"
                   onClick={activateLifeline}
-                  disabled={(status?.lifeline?.lifeline_remaining || 0) <= 0 || !lockEnforced}
+                  disabled={(status?.lifeline?.lifeline_remaining || 0) <= 0 || !lockEnforced || isSuspended || isPaused}
                 >
                   Unlock Temporarily (60s)
                 </button>

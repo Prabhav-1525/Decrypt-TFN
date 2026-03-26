@@ -217,7 +217,9 @@ export function syncPuzzlesFromFolder(store, folderPath, options = {}) {
 
 export function readPuzzleAssetForTeam(store, teamId, relativePath) {
   const db = store.read();
-  const active = db.assignments.find((a) => a.team_id === teamId && a.status === "active");
+  const active = db.assignments.find(
+    (a) => a.team_id === teamId && (a.status === "active" || a.status === "paused")
+  );
   if (!active) {
     return { ok: false, message: "No active puzzle." };
   }
