@@ -198,6 +198,9 @@ export function createAuthRouter(store) {
     const { refreshToken } = req.body || {};
     const tokenId = req.user.token_id;
     const teamId = req.user.team_id;
+    if (isRateLimited(`logout:${teamId}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)) {
+      return res.status(429).json({ message: "Too many logout attempts. Please try again shortly." });
+    }
 
     store.write((data) => {
       data.sessions = data.sessions.filter(
@@ -215,6 +218,9 @@ export function createAuthRouter(store) {
   });
 
   router.get("/validate", validateRateLimiter, authenticateToken, (req, res) => {
+    if (isRateLimited(`validate:${req.user.team_id}`, 120, RATE_LIMIT_WINDOW_MS)) {
+      return res.status(429).json({ message: "Too many validation checks. Please slow down." });
+    }
     return res.json({
       ok: true,
       team: {
