@@ -1,6 +1,6 @@
 import express from "express";
 import { getDashboardSnapshot } from "../services/dashboardService.js";
-import { adjustTimer, skipCurrentPuzzle } from "../services/puzzleService.js";
+import { adjustTimer, logEvent, pauseTimer, resumeTimer, skipCurrentPuzzle } from "../services/puzzleService.js";
 import { getDefaultPuzzleBankDir, syncPuzzlesFromFolder } from "../services/puzzleBankService.js";
 
 export function createAdminRouter(store) {
@@ -8,6 +8,10 @@ export function createAdminRouter(store) {
 
   router.get("/overview", (_req, res) => {
     return res.json(getDashboardSnapshot(store));
+  });
+
+  router.get("/puzzle-bank/default", (_req, res) => {
+    return res.json({ defaultPath: getDefaultPuzzleBankDir() });
   });
 
   router.get("/leaderboard", (_req, res) => {
@@ -20,7 +24,7 @@ export function createAdminRouter(store) {
 
   router.post("/team/:teamId/skip", (req, res) => {
     const { teamId } = req.params;
-    const result = skipCurrentPuzzle(store, teamId);
+    const result = skipCurrentPuzzle(store, teamId, req.user?.team_id || null);
     req.io.emit("dashboard:update", getDashboardSnapshot(store));
 
     if (!result.ok) {
@@ -38,13 +42,35 @@ export function createAdminRouter(store) {
       return res.status(400).json({ message: "remainingSeconds must be a non-negative number." });
     }
 
-    const result = adjustTimer(store, teamId, remainingSeconds);
+    const result = adjustTimer(store, teamId, remainingSeconds, req.user?.team_id || null);
     req.io.emit("dashboard:update", getDashboardSnapshot(store));
 
     if (!result.ok) {
       return res.status(400).json(result);
     }
 
+    return res.json(result);
+  });
+
+  router.post("/team/:teamId/pause", (req, res) => {
+    const { teamId } = req.params;
+    const result = pauseTimer(store, teamId, req.user?.team_id || null);
+    req.io.emit("dashboard:update", getDashboardSnapshot(store));
+
+    if (!result.ok) {
+      return res.status(400).json(result);
+    }
+    return res.json(result);
+  });
+
+  router.post("/team/:teamId/resume", (req, res) => {
+    const { teamId } = req.params;
+    const result = resumeTimer(store, teamId, req.user?.team_id || null);
+    req.io.emit("dashboard:update", getDashboardSnapshot(store));
+
+    if (!result.ok) {
+      return res.status(400).json(result);
+    }
     return res.json(result);
   });
 
@@ -61,6 +87,11 @@ export function createAdminRouter(store) {
     }
 
     req.io.emit("dashboard:update", getDashboardSnapshot(store));
+    logEvent(store, "puzzle_bank_synced", req.user?.team_id || "ADMIN", {
+      replaceExistingFromSource: Boolean(replaceExistingFromSource),
+      replaceAllPuzzles: Boolean(replaceAllPuzzles),
+      source_root: result.source_root
+    });
     return res.json(result);
   });
 

@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { getRemainingSeconds, nowIso } from "../utils/time.js";
 import { evaluateSubmissionOutput, executeSubmissionPreview } from "./executionService.js";
 
+const VIOLATION_THRESHOLD = 3;
+const VIOLATION_LOCK_SECONDS = 300;
+
 function normalizeAnswer(answer) {
   return `${answer || ""}`.trim().toLowerCase();
 }
@@ -31,6 +34,34 @@ export function logEvent(store, type, teamId, details = {}) {
   });
 }
 
+function getViolationProfile(db, teamId) {
+  if (!Array.isArray(db.violations)) {
+    db.violations = [];
+  }
+  let profile = db.violations.find((v) => v.team_id === teamId);
+  if (!profile) {
+    profile = {
+      team_id: teamId,
+      count: 0,
+      last_violation_at: null,
+      last_penalty_at: null,
+      suspended_until: null
+    };
+    db.violations.push(profile);
+  }
+  return profile;
+}
+
+function getRemainingSecondsForAssignment(assignment) {
+  if (!assignment) {
+    return 0;
+  }
+  if (assignment.status === "paused") {
+    return Math.max(assignment.paused_remaining_sec || 0, 0);
+  }
+  return getRemainingSeconds(assignment.start_time, assignment.time_limit_sec);
+}
+
 export function normalizeAssignments(store) {
   const db = store.read();
   const updates = [];
@@ -39,7 +70,7 @@ export function normalizeAssignments(store) {
     if (assignment.status !== "active") {
       continue;
     }
-    const remaining = getRemainingSeconds(assignment.start_time, assignment.time_limit_sec);
+    const remaining = getRemainingSecondsForAssignment(assignment);
     if (remaining <= 0) {
       assignment.status = "expired";
       assignment.ended_at = nowIso();
@@ -63,7 +94,7 @@ export function normalizeAssignments(store) {
 
 function getSolvedPuzzleIds(db, teamId) {
   return db.assignments
-    .filter((a) => a.team_id === teamId && (a.status === "solved" || a.status === "expired" || a.status === "skipped"))
+    .filter((a) => a.team_id === teamId && (a.status === "solved" || a.status === "expired" || a.status === "skipped" || a.status === "forfeited"))
     .map((a) => a.puzzle_id);
 }
 
@@ -76,6 +107,11 @@ export function assignNextPuzzle(store, teamId) {
   const active = getActiveAssignment(db, teamId);
   if (active) {
     return active;
+  }
+
+  const violationProfile = getViolationProfile(db, teamId);
+  if (violationProfile?.suspended_until && new Date(violationProfile.suspended_until).getTime() > Date.now()) {
+    return null;
   }
 
   const triviaPuzzleIds = db.puzzles.filter((p) => `${p.puzzle_id || ""}`.startsWith("TRIVIA_")).map((p) => p.puzzle_id);
@@ -145,10 +181,21 @@ export function assignNextPuzzle(store, teamId) {
 export function getCurrentPuzzleForTeam(store, teamId) {
   normalizeAssignments(store);
   const db = store.read();
+  const violationProfile = getViolationProfile(db, teamId);
+  const suspended =
+    violationProfile?.suspended_until &&
+    new Date(violationProfile.suspended_until).getTime() > Date.now();
   const active = getActiveAssignment(db, teamId);
   const assignment = active || assignNextPuzzle(store, teamId);
 
   if (!assignment) {
+    if (suspended) {
+      return {
+        completed: false,
+        suspended: true,
+        suspended_until: violationProfile.suspended_until
+      };
+    }
     return { completed: true };
   }
 
@@ -168,7 +215,7 @@ export function getCurrentPuzzleForTeam(store, teamId) {
       expected_file_name: puzzle.expected_file_name || null,
       asset_files: []
     },
-    remaining_seconds: getRemainingSeconds(assignment.start_time, assignment.time_limit_sec),
+    remaining_seconds: getRemainingSecondsForAssignment(assignment),
     lifeline
   };
 }
@@ -324,21 +371,67 @@ export function getTeamStatus(store, teamId) {
   const db = store.read();
   const solvedCount = db.assignments.filter((a) => a.team_id === teamId && a.status === "solved").length;
   const attempts = db.submissions.filter((s) => s.team_id === teamId).length;
+  const violationProfile = getViolationProfile(db, teamId);
 
   return {
     ...payload,
     stats: {
       solved_count: solvedCount,
       attempts
-    }
+    },
+    violation_profile: violationProfile
   };
 }
 
-export function reportViolation(store, teamId, violation) {
-  logEvent(store, "anti_cheat_violation", teamId, violation);
+function applyViolationPenalty(store, teamId) {
+  normalizeAssignments(store);
+  let forfeited = false;
+  store.write((db) => {
+    const profile = getViolationProfile(db, teamId);
+    profile.count = 0;
+    profile.last_penalty_at = nowIso();
+    profile.suspended_until = new Date(Date.now() + VIOLATION_LOCK_SECONDS * 1000).toISOString();
+
+    const assignment = db.assignments.find((a) => a.team_id === teamId && (a.status === "active" || a.status === "paused"));
+    if (assignment) {
+      assignment.status = "forfeited";
+      assignment.ended_at = nowIso();
+      forfeited = true;
+      db.events.push({
+        event_id: randomUUID(),
+        timestamp: nowIso(),
+        team_id: teamId,
+        type: "puzzle_forfeited_due_to_violation",
+        details: { puzzle_id: assignment.puzzle_id }
+      });
+    }
+  });
+
+  if (forfeited) {
+    assignNextPuzzle(store, teamId);
+  }
 }
 
-export function skipCurrentPuzzle(store, teamId) {
+export function reportViolation(store, teamId, violation) {
+  const now = nowIso();
+  let thresholdReached = false;
+  store.write((db) => {
+    const profile = getViolationProfile(db, teamId);
+    profile.count += 1;
+    profile.last_violation_at = now;
+    if (profile.count >= VIOLATION_THRESHOLD) {
+      thresholdReached = true;
+    }
+  });
+
+  logEvent(store, "anti_cheat_violation", teamId, { ...violation, threshold: VIOLATION_THRESHOLD });
+
+  if (thresholdReached) {
+    applyViolationPenalty(store, teamId);
+  }
+}
+
+export function skipCurrentPuzzle(store, teamId, actorId = null) {
   normalizeAssignments(store);
 
   let skippedPuzzleId = null;
@@ -357,7 +450,7 @@ export function skipCurrentPuzzle(store, teamId) {
       timestamp: nowIso(),
       team_id: teamId,
       type: "puzzle_skipped_by_admin",
-      details: { puzzle_id: current.puzzle_id }
+      details: { puzzle_id: current.puzzle_id, performed_by: actorId }
     });
   });
 
@@ -369,12 +462,12 @@ export function skipCurrentPuzzle(store, teamId) {
   return { ok: true, message: `Puzzle ${skippedPuzzleId} skipped and next assigned.` };
 }
 
-export function adjustTimer(store, teamId, newRemainingSeconds) {
+export function adjustTimer(store, teamId, newRemainingSeconds, actorId = null) {
   normalizeAssignments(store);
   let adjusted = false;
 
   store.write((db) => {
-    const current = db.assignments.find((a) => a.team_id === teamId && a.status === "active");
+    const current = db.assignments.find((a) => a.team_id === teamId && (a.status === "active" || a.status === "paused"));
     if (!current) {
       return;
     }
@@ -383,6 +476,9 @@ export function adjustTimer(store, teamId, newRemainingSeconds) {
     const allowedMs = current.time_limit_sec * 1000;
     const startMs = now - (allowedMs - newRemainingSeconds * 1000);
     current.start_time = new Date(startMs).toISOString();
+    current.status = "active";
+    delete current.paused_remaining_sec;
+    delete current.paused_at;
     adjusted = true;
 
     db.events.push({
@@ -390,7 +486,7 @@ export function adjustTimer(store, teamId, newRemainingSeconds) {
       timestamp: nowIso(),
       team_id: teamId,
       type: "timer_adjusted_by_admin",
-      details: { remaining_seconds: newRemainingSeconds }
+      details: { remaining_seconds: newRemainingSeconds, performed_by: actorId }
     });
   });
 
@@ -399,6 +495,66 @@ export function adjustTimer(store, teamId, newRemainingSeconds) {
   }
 
   return { ok: true, message: "Timer adjusted successfully." };
+}
+
+export function pauseTimer(store, teamId, actorId = null) {
+  normalizeAssignments(store);
+  let paused = false;
+  store.write((db) => {
+    const current = db.assignments.find((a) => a.team_id === teamId && a.status === "active");
+    if (!current) {
+      return;
+    }
+    const remaining = getRemainingSecondsForAssignment(current);
+    current.status = "paused";
+    current.paused_remaining_sec = remaining;
+    current.paused_at = nowIso();
+    paused = true;
+    db.events.push({
+      event_id: randomUUID(),
+      timestamp: nowIso(),
+      team_id: teamId,
+      type: "timer_paused_by_admin",
+      details: { remaining_seconds: remaining, performed_by: actorId }
+    });
+  });
+
+  if (!paused) {
+    return { ok: false, message: "No active puzzle for this team." };
+  }
+  return { ok: true, message: "Timer paused." };
+}
+
+export function resumeTimer(store, teamId, actorId = null) {
+  normalizeAssignments(store);
+  let resumed = false;
+  store.write((db) => {
+    const current = db.assignments.find((a) => a.team_id === teamId && a.status === "paused");
+    if (!current) {
+      return;
+    }
+    const remaining = getRemainingSecondsForAssignment(current);
+    const now = Date.now();
+    const allowedMs = current.time_limit_sec * 1000;
+    const startMs = now - (allowedMs - remaining * 1000);
+    current.start_time = new Date(startMs).toISOString();
+    current.status = "active";
+    delete current.paused_remaining_sec;
+    delete current.paused_at;
+    resumed = true;
+    db.events.push({
+      event_id: randomUUID(),
+      timestamp: nowIso(),
+      team_id: teamId,
+      type: "timer_resumed_by_admin",
+      details: { remaining_seconds: remaining, performed_by: actorId }
+    });
+  });
+
+  if (!resumed) {
+    return { ok: false, message: "No paused puzzle for this team." };
+  }
+  return { ok: true, message: "Timer resumed." };
 }
 
 export function runCodePreview(store, teamId, content) {

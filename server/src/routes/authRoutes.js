@@ -15,6 +15,10 @@ export function createAuthRouter(store) {
     data.sessions = data.sessions.filter((session) => session.expires_at > currentIso && session.team_id !== teamId);
   }
 
+  function revokeSession(data, tokenId) {
+    data.sessions = data.sessions.filter((session) => session.token_id !== tokenId);
+  }
+
   router.post("/login", (req, res) => {
     const { teamId, password } = req.body || {};
 
@@ -107,6 +111,37 @@ export function createAuthRouter(store) {
         is_admin: req.user.is_admin
       }
     });
+  });
+
+  router.post("/refresh", authenticateToken, (req, res) => {
+    const tokenId = randomUUID();
+    const token = signToken({
+      team_id: req.user.team_id,
+      team_name: req.user.team_name,
+      is_admin: req.user.is_admin,
+      token_id: tokenId
+    });
+
+    store.write((data) => {
+      revokeSession(data, req.user.token_id);
+      pruneAndRotateSessions(data, req.user.team_id);
+      data.sessions.push({
+        token_id: tokenId,
+        team_id: req.user.team_id,
+        created_at: nowIso(),
+        expires_at: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString()
+      });
+    });
+
+    return res.json({ token });
+  });
+
+  router.post("/logout", authenticateToken, (req, res) => {
+    store.write((data) => {
+      revokeSession(data, req.user.token_id);
+    });
+    logEvent(store, req.user.is_admin ? "admin_logout" : "team_logout", req.user.team_id);
+    return res.json({ ok: true });
   });
 
   return router;

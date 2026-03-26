@@ -1,12 +1,29 @@
 import fs from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
+import initSqlJs from "sql.js";
+import { getDefaultPuzzleBankDir } from "../services/puzzleBankService.js";
 import { seedData } from "./seed.js";
 
-const DB_FILE = path.resolve(process.cwd(), "src/data/db.json");
+const JSON_FALLBACK_FILE = path.resolve(process.cwd(), "src/data/db.json");
+const SQLITE_FILE = path.resolve(process.cwd(), "src/data/db.sqlite");
+const WASM_PATH = path.resolve(process.cwd(), "node_modules/sql.js/dist/sql-wasm.wasm");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function normalizePuzzlePaths(db) {
+  const defaultRoot = getDefaultPuzzleBankDir();
+  db.puzzles = (db.puzzles || []).map((puzzle) => {
+    const root = puzzle.source_root || "";
+    const looksMachineSpecific = root.includes("\\") || root.toLowerCase().includes(":\\");
+    return {
+      ...puzzle,
+      source_root: looksMachineSpecific ? defaultRoot : root || defaultRoot
+    };
+  });
+  return db;
 }
 
 function ensureLifelines(db) {
@@ -24,6 +41,23 @@ function ensureLifelines(db) {
   }
 }
 
+function ensureViolations(db) {
+  const teamIds = db.teams.filter((t) => !t.is_admin).map((t) => t.team_id);
+  db.violations = db.violations || [];
+  for (const teamId of teamIds) {
+    const existing = db.violations.find((v) => v.team_id === teamId);
+    if (!existing) {
+      db.violations.push({
+        team_id: teamId,
+        count: 0,
+        last_violation_at: null,
+        last_penalty_at: null,
+        suspended_until: null
+      });
+    }
+  }
+}
+
 function normalizeData(db) {
   db.assignments = db.assignments || [];
   db.submissions = db.submissions || [];
@@ -31,6 +65,7 @@ function normalizeData(db) {
   db.sessions = db.sessions || [];
   db.events = db.events || [];
   ensureLifelines(db);
+  ensureViolations(db);
   return db;
 }
 
@@ -43,30 +78,49 @@ function buildInitialData() {
     is_admin: team.is_admin
   }));
   ensureLifelines(initial);
+  ensureViolations(initial);
   return initial;
 }
 
 export class DataStore {
   constructor() {
     this.db = null;
+    this.sqlite = null;
   }
 
-  init() {
-    if (!fs.existsSync(DB_FILE)) {
-      fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
-      this.db = buildInitialData();
-      this.persist();
-      return;
+  async init() {
+    fs.mkdirSync(path.dirname(SQLITE_FILE), { recursive: true });
+    const SQL = await initSqlJs({
+      locateFile: () => WASM_PATH
+    });
+
+    const fileExists = fs.existsSync(SQLITE_FILE);
+    const fileBuffer = fileExists ? fs.readFileSync(SQLITE_FILE) : null;
+    this.sqlite = fileBuffer ? new SQL.Database(new Uint8Array(fileBuffer)) : new SQL.Database();
+
+    this.sqlite.run("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+
+    const rowStmt = this.sqlite.prepare("SELECT value FROM kv WHERE key = 'db'");
+    let loaded = null;
+    if (rowStmt.step()) {
+      loaded = JSON.parse(rowStmt.getAsObject().value);
+    }
+    rowStmt.free();
+
+    if (!loaded && fs.existsSync(JSON_FALLBACK_FILE)) {
+      const content = fs.readFileSync(JSON_FALLBACK_FILE, "utf8");
+      loaded = JSON.parse(content);
     }
 
-    const content = fs.readFileSync(DB_FILE, "utf8");
-    const parsed = JSON.parse(content);
-    this.db = normalizeData(parsed);
+    this.db = normalizePuzzlePaths(normalizeData(loaded || buildInitialData()));
     this.persist();
   }
 
   persist() {
-    fs.writeFileSync(DB_FILE, `${JSON.stringify(this.db, null, 2)}\n`, "utf8");
+    const payload = JSON.stringify(this.db, null, 2);
+    this.sqlite.run("INSERT OR REPLACE INTO kv(key, value) VALUES ('db', ?)", [payload]);
+    const binary = this.sqlite.export();
+    fs.writeFileSync(SQLITE_FILE, Buffer.from(binary));
   }
 
   read() {
