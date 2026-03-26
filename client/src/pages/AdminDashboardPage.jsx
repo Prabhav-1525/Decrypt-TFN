@@ -179,7 +179,17 @@ export default function AdminDashboardPage() {
         action,
         remainingSeconds: Number(bulkTimerSeconds) || 0
       });
-      setActionFeedback(`Bulk ${action} completed for ${selectedTeams.length} team(s).`);
+      const results = response.data?.results || [];
+      const successCount = results.filter((entry) => entry.ok).length;
+      const failureCount = results.length - successCount;
+      setActionFeedback(
+        `Bulk ${action}: ${successCount} succeeded${failureCount ? `, ${failureCount} failed` : ""}.`
+      );
+      if (failureCount) {
+        setError("Some bulk operations failed. See logs for details.");
+      } else {
+        setError("");
+      }
       await fetchOverview();
       clearSelection();
     } catch (requestError) {

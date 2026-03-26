@@ -7,6 +7,9 @@ import { seedData } from "./seed.js";
 const DEFAULT_DB_FILE = path.resolve(process.cwd(), "src/data/db.sqlite");
 const LEGACY_JSON_FILE = path.resolve(process.cwd(), "src/data/db.json");
 const DEFAULT_PUZZLE_ROOT = path.resolve(process.cwd(), "puzzle_bank");
+const CUSTOM_PUZZLE_ROOT_BASE = process.env.PUZZLE_ROOT_BASE
+  ? path.resolve(process.env.PUZZLE_ROOT_BASE)
+  : DEFAULT_PUZZLE_ROOT;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -29,7 +32,11 @@ function ensureLifelines(db) {
 
 function normalizePuzzleSources(db) {
   db.puzzles = db.puzzles.map((puzzle) => {
-    const sanitizedRoot = puzzle.source_root ? path.resolve(puzzle.source_root) : DEFAULT_PUZZLE_ROOT;
+    const sanitizedRoot = puzzle.source_root
+      ? path.isAbsolute(puzzle.source_root)
+        ? puzzle.source_root
+        : path.resolve(CUSTOM_PUZZLE_ROOT_BASE, puzzle.source_root)
+      : DEFAULT_PUZZLE_ROOT;
     return {
       ...puzzle,
       source_root: sanitizedRoot

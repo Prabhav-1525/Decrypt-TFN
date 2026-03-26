@@ -398,9 +398,10 @@ function applyAntiCheatPolicy(store, teamId) {
 
   const currentRemaining = getAssignmentRemainingSeconds(active);
   const penaltySeconds = Math.min(30 * (violationCount - 2), currentRemaining);
+  const newRemaining = Math.max(currentRemaining - penaltySeconds, 0);
   store.write((data) => {
-    setAssignmentRemainingSeconds(active, currentRemaining - penaltySeconds);
-    active.paused_remaining_sec = active.paused ? getAssignmentRemainingSeconds(active) : null;
+    setAssignmentRemainingSeconds(active, newRemaining);
+    active.paused_remaining_sec = active.paused ? newRemaining : null;
     data.events.push({
       event_id: randomUUID(),
       timestamp: nowIso(),

@@ -4,6 +4,7 @@ import api, { setAuthToken } from "../services/api";
 const AuthContext = createContext(null);
 
 const STORAGE_KEY = "puzzle-platform-auth";
+const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 
 function buildAuthState(data) {
   return {
@@ -36,7 +37,7 @@ export function AuthProvider({ children }) {
       setAuthToken(auth.token);
       const now = Date.now();
       const expiresAt = auth.expires_at ? new Date(auth.expires_at).getTime() : 0;
-      const shouldRefresh = auth.refresh_token && expiresAt > 0 && expiresAt - now < 5 * 60 * 1000;
+      const shouldRefresh = auth.refresh_token && expiresAt > 0 && expiresAt - now < REFRESH_THRESHOLD_MS;
 
       try {
         if (shouldRefresh) {

@@ -33,9 +33,12 @@ function buildSessionPayload(team, tokenId, expiresAt, refreshToken, refreshExpi
 export function createAuthRouter(store) {
   const router = express.Router();
 
-  function pruneAndRotateSessions(data, teamId) {
+  function resetSessionsForTeam(data, teamId) {
     const currentIso = nowIso();
-    data.sessions = data.sessions.filter((session) => session.expires_at > currentIso && session.team_id !== teamId);
+    // Enforce single active session per team while pruning expired records
+    data.sessions = data.sessions.filter(
+      (session) => session.expires_at > currentIso && session.team_id !== teamId
+    );
   }
 
   function createSession(team) {
@@ -45,7 +48,7 @@ export function createAuthRouter(store) {
     const refreshExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS).toISOString();
 
     store.write((data) => {
-      pruneAndRotateSessions(data, team.team_id);
+      resetSessionsForTeam(data, team.team_id);
       data.sessions.push({
         token_id: tokenId,
         team_id: team.team_id,
