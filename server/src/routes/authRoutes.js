@@ -10,6 +10,22 @@ const ACCESS_TOKEN_TTL_MINUTES = Number(process.env.ACCESS_TOKEN_TTL_MINUTES || 
 const ACCESS_TOKEN_TTL_MS = ACCESS_TOKEN_TTL_MINUTES * 60 * 1000;
 const REFRESH_TOKEN_TTL_HOURS = Number(process.env.REFRESH_TOKEN_TTL_HOURS || 48);
 const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_HOURS * 60 * 60 * 1000;
+const RATE_LIMIT_STATE = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 20;
+
+function isRateLimited(key, limit = RATE_LIMIT_MAX, windowMs = RATE_LIMIT_WINDOW_MS) {
+  const now = Date.now();
+  const existing = RATE_LIMIT_STATE.get(key) || [];
+  const recent = existing.filter((ts) => now - ts < windowMs);
+  if (recent.length >= limit) {
+    RATE_LIMIT_STATE.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  RATE_LIMIT_STATE.set(key, recent);
+  return false;
+}
 
 function buildSessionPayload(team, tokenId, expiresAt, refreshToken, refreshExpiresAt) {
   const token = signToken(
@@ -131,6 +147,9 @@ export function createAuthRouter(store) {
 
   router.post("/refresh", (req, res) => {
     const { refreshToken } = req.body || {};
+    if (isRateLimited(`refresh:${req.ip}`, 30, RATE_LIMIT_WINDOW_MS)) {
+      return res.status(429).json({ message: "Too many refresh attempts. Please try again shortly." });
+    }
     if (!refreshToken) {
       return res.status(400).json({ message: "refreshToken is required." });
     }
@@ -157,6 +176,9 @@ export function createAuthRouter(store) {
     const { refreshToken } = req.body || {};
     const tokenId = req.user.token_id;
     const teamId = req.user.team_id;
+    if (isRateLimited(`logout:${teamId}`)) {
+      return res.status(429).json({ message: "Too many logout attempts. Please try again shortly." });
+    }
 
     store.write((data) => {
       data.sessions = data.sessions.filter(
