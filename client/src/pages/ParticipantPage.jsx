@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import ToolsPanel from "../components/ToolsPanel/ToolsPanel";
 
 function formatTime(totalSeconds) {
   const safe = Math.max(totalSeconds, 0);
@@ -25,12 +26,26 @@ export default function ParticipantPage() {
   const [error, setError] = useState("");
   const [violations, setViolations] = useState(0);
   const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [clipboardHistory, setClipboardHistory] = useState(() => {
+    const saved = localStorage.getItem("clipboard-history");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [hints, setHints] = useState([]);
+  const [revealedHints, setRevealedHints] = useState([]);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
+
+  useEffect(() => {
+    document.body.dataset.theme = darkMode ? "dark" : "light";
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
 
   const loadStatus = useCallback(async () => {
     try {
       const response = await api.get("/team/status");
       setStatus(response.data);
       setViolations(response.data?.violation_profile?.count || 0);
+      setHints(response.data?.puzzle?.hints || []);
+      setRevealedHints(response.data?.hints_revealed || []);
       setError("");
     } catch (requestError) {
       if (requestError?.response?.status === 401) {
@@ -52,11 +67,51 @@ export default function ParticipantPage() {
     }
   }, []);
 
+  const refreshHints = useCallback(async () => {
+    try {
+      const response = await api.get("/team/hints");
+      setHints(response.data?.hints || []);
+      setRevealedHints(response.data?.revealed || []);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleRevealHint = async (index) => {
+    try {
+      const response = await api.post("/team/hints/reveal", { hintIndex: index });
+      setFeedback(`Hint unlocked${response.data?.penalty_seconds ? ` (-${response.data.penalty_seconds}s)` : ""}`);
+      await refreshHints();
+      await loadStatus();
+    } catch (requestError) {
+      setFeedback(requestError?.response?.data?.message || "Unable to reveal hint.");
+    }
+  };
+
+  const handleCopy = (value) => {
+    if (!value) return;
+    const next = [value, ...clipboardHistory.filter((item) => item !== value)].slice(0, 5);
+    setClipboardHistory(next);
+    localStorage.setItem("clipboard-history", JSON.stringify(next));
+  };
+
+  const handlePasteToField = (value) => {
+    if (!value) return;
+    setAnswer(value);
+    setSubmissionContent(value);
+  };
+
   useEffect(() => {
     loadStatus();
     const interval = setInterval(loadStatus, 5000);
     return () => clearInterval(interval);
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (status?.assignment?.puzzle_id) {
+      refreshHints();
+    }
+  }, [status?.assignment?.puzzle_id, refreshHints]);
 
   useEffect(() => {
     if (!status || status.completed || !status.assignment || status.assignment.status === "paused") {
@@ -92,6 +147,9 @@ export default function ParticipantPage() {
   const lockEnforced = lifelineRemainingSeconds <= 0;
   const isSuspended = Boolean(status?.suspended);
   const isPaused = status?.assignment?.status === "paused";
+  const remainingSeconds = status?.remaining_seconds || 0;
+  const totalSeconds = status?.assignment?.time_limit_sec || remainingSeconds;
+  const usedRatio = totalSeconds ? (totalSeconds - remainingSeconds) / totalSeconds : 0;
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -245,8 +303,14 @@ export default function ParticipantPage() {
         <div>
           <span className="eyebrow">Event Dashboard</span>
           <h1>{auth?.team?.team_name}</h1>
+          <div className="timer-pill" style={{ color: usedRatio >= 0.9 ? 'var(--danger)' : usedRatio >= 0.75 ? 'var(--accent-secondary)' : 'var(--text-primary)' }}>
+            Timer: {formatTime(remainingSeconds)}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn btn-muted" type="button" onClick={() => setDarkMode((v) => !v)}>
+            {darkMode ? "Light Mode" : "Dark Mode"}
+          </button>
           <button className="btn btn-outline" onClick={requestFullscreen}>
             {fullscreen ? "Fullscreen Active" : "Go Fullscreen"}
           </button>
@@ -310,6 +374,23 @@ export default function ParticipantPage() {
               <h2 className={violations >= 3 ? "danger-text" : ""}>{violations}</h2>
             </article>
           </section>
+          {Array.isArray(status?.progress_tiles) && (
+            <section className="card progress-tracker">
+              <span className="eyebrow">Progress Tracker</span>
+              <div className="progress-tiles">
+                {status.progress_tiles.map((tile) => (
+                  <div
+                    key={tile.puzzle_id}
+                    className={`progress-tile ${tile.status}`}
+                    title={tile.puzzle_type || "puzzle"}
+                  >
+                    <strong>{tile.puzzle_id}</strong>
+                    <small className="muted">{tile.status}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
           {isPaused && (
             <p className="info-text" style={{ marginBottom: '16px' }}>
               Timer paused by administrator. Please stand by.
@@ -323,6 +404,39 @@ export default function ParticipantPage() {
               <pre className="asset-preview" style={{ marginBottom: '12px' }}>{status?.puzzle?.puzzle_text}</pre>
               <p className="muted" style={{ fontSize: '0.9rem' }}>Points Value: <span style={{ color: 'var(--accent-secondary)' }}>{status?.puzzle?.points}</span></p>
             </div>
+
+            <ToolsPanel
+              puzzle={status?.puzzle}
+              onCopy={handleCopy}
+              clipboardHistory={clipboardHistory}
+              onPasteToField={handlePasteToField}
+            />
+
+            {hints?.length > 0 && (
+              <section className="hints">
+                <div className="utility-header">
+                  <h3>Hints</h3>
+                  <p className="muted">H1 free; further hints may apply time penalties.</p>
+                </div>
+                <div className="hints-grid">
+                  {hints.map((hint, idx) => {
+                    const unlocked = revealedHints.includes(idx);
+                    return (
+                      <div key={idx} className="hint-card">
+                        <span className="eyebrow">H{idx + 1}</span>
+                        {unlocked ? (
+                          <p>{hint}</p>
+                        ) : (
+                          <button className="btn btn-outline" type="button" onClick={() => handleRevealHint(idx)}>
+                            Reveal {idx === 0 ? "(free)" : "(penalty applies)"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             <form onSubmit={handleAnswerSubmit} className="form-grid">
               {status?.puzzle?.submission_mode === "file" ? (

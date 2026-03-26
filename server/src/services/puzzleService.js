@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getRemainingSeconds, nowIso } from "../utils/time.js";
+import { DEFAULT_HINT_PENALTIES, getPuzzleHints, getToolConfigForPuzzle } from "../config/toolConfig.js";
 import { evaluateSubmissionOutput, executeSubmissionPreview } from "./executionService.js";
 
 const VIOLATION_THRESHOLD = 3;
@@ -203,17 +204,24 @@ export function getCurrentPuzzleForTeam(store, teamId) {
   const puzzle = latestDb.puzzles.find((p) => p.puzzle_id === assignment.puzzle_id);
   const lifeline = latestDb.lifelines.find((l) => l.team_id === teamId);
 
+  const toolConfig = getToolConfigForPuzzle(puzzle || {});
+  const hints = getPuzzleHints(puzzle || {});
+
   return {
     completed: false,
     assignment,
     puzzle: {
-      puzzle_id: puzzle.puzzle_id,
-      puzzle_text: puzzle.puzzle_text,
-      points: puzzle.points,
-      submission_mode: puzzle.submission_mode || "text",
-      validation_mode: puzzle.validation_mode || "content",
-      expected_file_name: puzzle.expected_file_name || null,
-      asset_files: []
+      puzzle_id: puzzle?.puzzle_id || assignment.puzzle_id,
+      puzzle_text: puzzle?.puzzle_text || "",
+      points: puzzle?.points,
+      submission_mode: puzzle?.submission_mode || "text",
+      validation_mode: puzzle?.validation_mode || "content",
+      expected_file_name: puzzle?.expected_file_name || null,
+      asset_files: [],
+      puzzle_type: puzzle.puzzle_type || null,
+      toolConfig,
+      hints,
+      hint_penalties: puzzle?.hint_penalties || DEFAULT_HINT_PENALTIES
     },
     remaining_seconds: getRemainingSecondsForAssignment(assignment),
     lifeline
@@ -372,6 +380,24 @@ export function getTeamStatus(store, teamId) {
   const solvedCount = db.assignments.filter((a) => a.team_id === teamId && a.status === "solved").length;
   const attempts = db.submissions.filter((s) => s.team_id === teamId).length;
   const violationProfile = getViolationProfile(db, teamId);
+  const activePuzzleId = payload?.assignment?.puzzle_id;
+  const hintState = activePuzzleId ? getHintState(db, teamId, activePuzzleId) : null;
+
+  const progressTiles = db.puzzles.map((puzzle) => {
+    const assignment = db.assignments.find((a) => a.team_id === teamId && a.puzzle_id === puzzle.puzzle_id);
+    let status = "pending";
+    if (assignment?.status === "solved") status = "solved";
+    else if (assignment?.status === "active") status = "active";
+    else if (assignment?.status === "expired") status = "expired";
+    else if (assignment?.status === "forfeited") status = "forfeited";
+    else if (assignment?.status === "skipped") status = "skipped";
+    return {
+      puzzle_id: puzzle.puzzle_id,
+      title: puzzle.title || puzzle.puzzle_id,
+      status,
+      puzzle_type: puzzle.puzzle_type || null
+    };
+  });
 
   return {
     ...payload,
@@ -379,8 +405,122 @@ export function getTeamStatus(store, teamId) {
       solved_count: solvedCount,
       attempts
     },
-    violation_profile: violationProfile
+    progress_tiles: progressTiles,
+    violation_profile: violationProfile,
+    hints_revealed: hintState?.revealed || []
   };
+}
+
+function getHintState(db, teamId, puzzleId) {
+  if (!Array.isArray(db.hint_reveals)) {
+    db.hint_reveals = [];
+  }
+  let state = db.hint_reveals.find((h) => h.team_id === teamId && h.puzzle_id === puzzleId);
+  if (!state) {
+    state = {
+      team_id: teamId,
+      puzzle_id: puzzleId,
+      revealed: []
+    };
+    db.hint_reveals.push(state);
+  }
+  return state;
+}
+
+export function getHintsForTeam(store, teamId) {
+  normalizeAssignments(store);
+  const db = store.read();
+  const assignment = getActiveAssignment(db, teamId);
+  if (!assignment) {
+    return { ok: false, message: "No active puzzle." };
+  }
+
+  const puzzle = db.puzzles.find((p) => p.puzzle_id === assignment.puzzle_id);
+  const hints = getPuzzleHints(puzzle);
+  const state = getHintState(db, teamId, assignment.puzzle_id);
+  return {
+    ok: true,
+    hints,
+    revealed: state.revealed,
+    penalties: puzzle.hint_penalties || DEFAULT_HINT_PENALTIES
+  };
+}
+
+export function revealHint(store, teamId, hintIndex) {
+  normalizeAssignments(store);
+  const db = store.read();
+  const assignment = getActiveAssignment(db, teamId);
+  if (!assignment) {
+    return { ok: false, message: "No active puzzle." };
+  }
+
+  const puzzle = db.puzzles.find((p) => p.puzzle_id === assignment.puzzle_id);
+  const hints = getPuzzleHints(puzzle);
+  if (hintIndex < 0 || hintIndex >= hints.length) {
+    return { ok: false, message: "Invalid hint index." };
+  }
+
+  let appliedPenalty = 0;
+  let hintText = hints[hintIndex];
+
+  store.write((data) => {
+    const state = getHintState(data, teamId, assignment.puzzle_id);
+    if (state.revealed.includes(hintIndex)) {
+      hintText = hints[hintIndex];
+      return;
+    }
+
+    state.revealed.push(hintIndex);
+    const penalties = puzzle.hint_penalties || DEFAULT_HINT_PENALTIES;
+    appliedPenalty = penalties[hintIndex] || 0;
+
+    if (appliedPenalty > 0) {
+      // Shift start time earlier to reduce remaining time.
+      const startMs = new Date(assignment.start_time).getTime();
+      assignment.start_time = new Date(startMs - appliedPenalty * 1000).toISOString();
+    }
+
+    data.events.push({
+      event_id: randomUUID(),
+      timestamp: nowIso(),
+      team_id: teamId,
+      type: "hint_revealed",
+      details: { puzzle_id: assignment.puzzle_id, hint_index: hintIndex, penalty_seconds: appliedPenalty }
+    });
+  });
+
+  return {
+    ok: true,
+    hint: hintText,
+    penalty_seconds: appliedPenalty
+  };
+}
+
+export function getNotepad(store, teamId) {
+  const db = store.read();
+  const note = db.notepads?.find((n) => n.team_id === teamId);
+  return {
+    ok: true,
+    content: note?.content || "",
+    updated_at: note?.updated_at || null
+  };
+}
+
+export function saveNotepad(store, teamId, content) {
+  const normalized = `${content || ""}`;
+  store.write((db) => {
+    if (!Array.isArray(db.notepads)) {
+      db.notepads = [];
+    }
+    let note = db.notepads.find((n) => n.team_id === teamId);
+    if (!note) {
+      note = { team_id: teamId, content: "", updated_at: null };
+      db.notepads.push(note);
+    }
+    note.content = normalized;
+    note.updated_at = nowIso();
+  });
+  return { ok: true };
 }
 
 function applyViolationPenalty(store, teamId) {
